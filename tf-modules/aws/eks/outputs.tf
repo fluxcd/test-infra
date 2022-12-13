@@ -1,6 +1,6 @@
 output "cluster_id" {
   description = "ID of the created EKS cluster"
-  value       = module.eks.cluster_id
+  value       = module.eks.cluster_name
 }
 
 output "cluster_ca_data" {
