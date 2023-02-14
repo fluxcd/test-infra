@@ -22,7 +22,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"path"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -92,29 +91,19 @@ func CreateAndPushImages(repos map[string]string, tags []string) error {
 	return nil
 }
 
-// retagAndPush retags local images based on the remote repo and pushes them
-// with :test tag.
-func retagAndPush(ctx context.Context, registry string, localImgs map[string]string) (map[string]string, error) {
-	imgs := map[string]string{}
-	for name, li := range localImgs {
-		remoteImage := path.Join(registry, name)
-		remoteImage += ":test"
-
-		log.Printf("pushing flux test image %s\n", remoteImage)
-		// Retag local image and push.
-		if err := RunCommand(ctx, "./",
-			fmt.Sprintf("docker tag %s %s", li, remoteImage),
-			RunCommandOptions{},
-		); err != nil {
-			return nil, err
-		}
-		if err := RunCommand(ctx, "./",
-			fmt.Sprintf("docker push %s", remoteImage),
-			RunCommandOptions{},
-		); err != nil {
-			return nil, err
-		}
-		imgs[name] = remoteImage
+// RetagAndPush retags local image based on the remoteImage and pushes the remoteImage
+func RetagAndPush(ctx context.Context, localImage, remoteImage string) error {
+	log.Printf("pushing flux test image %s\n", remoteImage)
+	// Retag local image and push.
+	if err := RunCommand(ctx, "./",
+		fmt.Sprintf("docker tag %s %s", localImage, remoteImage),
+		RunCommandOptions{},
+	); err != nil {
+		return err
 	}
-	return imgs, nil
+	
+	return RunCommand(ctx, "./",
+		fmt.Sprintf("docker push %s", remoteImage),
+		RunCommandOptions{},
+	)
 }
