@@ -13,9 +13,10 @@ resource "azurerm_container_registry" "this" {
   tags                = module.tags.tags
 }
 
-# Add the role to the identity the kubernetes cluster was assigned
+# Add the role to each identity that was passed in.
 resource "azurerm_role_assignment" "kubweb_to_acr" {
+  count                = length(var.aks_principal_id)
   scope                = azurerm_container_registry.this.id
   role_definition_name = "AcrPull"
-  principal_id         = var.aks_principal_id
+  principal_id         = var.aks_principal_id[count.index]
 }

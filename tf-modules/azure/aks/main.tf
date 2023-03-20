@@ -25,6 +25,8 @@ resource "azurerm_kubernetes_cluster" "this" {
     type = "SystemAssigned"
   }
   role_based_access_control_enabled = true
+  oidc_issuer_enabled               = var.enable_wi
+  workload_identity_enabled         = var.enable_wi
   network_profile {
     network_plugin = "kubenet"
     network_policy = "calico"
