@@ -18,10 +18,13 @@ package tftestenv
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	install "github.com/hashicorp/hc-install"
 	"github.com/hashicorp/hc-install/fs"
@@ -35,6 +38,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var shutdownSignals = []os.Signal{os.Interrupt, syscall.SIGTERM}
 
 // Environment encapsulates a Kubernetes test environment.
 type Environment struct {
@@ -101,9 +106,12 @@ func WithBuildDir(dir string) EnvironmentOption {
 
 // New finds or downloads terraform binary, uses it to run terraform in the
 // given terraformPath to create a kubernetes cluster. A kubeconfig of the
-// created is constructed at the given kubeconfigPath which is then used to
-// construct a kubernetes client that can be used in the tests.
+// created cluster is constructed at the given kubeconfigPath which is then used
+// to construct a kubernetes client that can be used in the tests.
 func New(ctx context.Context, scheme *runtime.Scheme, terraformPath string, kubeconfigPath string, opts ...EnvironmentOption) (*Environment, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	env := &Environment{
 		buildDir: "build", // Default build dir.
 	}
@@ -168,15 +176,49 @@ func New(ctx context.Context, scheme *runtime.Scheme, terraformPath string, kube
 		}
 	}
 
+	// Set up signal handling to gracefully stop the environment.
+	sigs := make(chan os.Signal, 2)
+	signal.Notify(sigs, shutdownSignals...)
+	go func() {
+		// Cancel the resource provisioning on first signal.
+		s := <-sigs
+		log.Println("Received signal:", s)
+		infoMsg := "Attempting to gracefully stop terraform"
+		if !env.retain {
+			infoMsg += " and clean up"
+		}
+		log.Println(infoMsg)
+		cancel()
+
+		// Exit on second signal.
+		<-sigs
+		log.Println("Force stop")
+		os.Exit(1)
+	}()
+
+	if err := env.createAndConfigure(ctx, scheme, kubeconfigPath); err != nil {
+		// Clean up the partially provisioned resources on failure based on the
+		// environment configuation. In CI, this would ensure that if the CI job
+		// is cancelled, the resources get cleaned up.
+		err = errors.Join(err, env.Stop(context.Background()))
+		return env, fmt.Errorf("error running apply: %v", err)
+	}
+
+	return env, nil
+}
+
+// createAndConfigure creates the resources and configures the Environment with
+// the created resource.
+func (env *Environment) createAndConfigure(ctx context.Context, scheme *runtime.Scheme, kubeconfigPath string) error {
 	// Apply Terraform, read the output values and construct kubeconfig.
 	log.Println("Applying Terraform")
-	err = env.tf.Apply(ctx)
+	err := env.tf.Apply(ctx)
 	if err != nil {
-		return env, fmt.Errorf("error running apply: %v", err)
+		return fmt.Errorf("error running apply: %v", err)
 	}
 	state, err := env.tf.Show(ctx)
 	if err != nil {
-		return env, fmt.Errorf("could not read state: %v", err)
+		return fmt.Errorf("could not read state: %v", err)
 	}
 	outputs := state.Values.Outputs
 	env.CreateKubeconfig(ctx, outputs, kubeconfigPath)
@@ -184,14 +226,14 @@ func New(ctx context.Context, scheme *runtime.Scheme, terraformPath string, kube
 	// Create kube client.
 	kubeCfg, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
 	if err != nil {
-		return env, fmt.Errorf("failed to build rest config: %w", err)
+		return fmt.Errorf("failed to build rest config: %w", err)
 	}
 	env.Client, err = client.New(kubeCfg, client.Options{Scheme: scheme})
 	if err != nil {
-		return env, fmt.Errorf("failed to create new client: %w", err)
+		return fmt.Errorf("failed to create new client: %w", err)
 	}
 
-	return env, nil
+	return nil
 }
 
 // Stop tears down the test infrastructure created by the environment.
