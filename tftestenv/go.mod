@@ -7,6 +7,7 @@ require (
 	github.com/hashicorp/hc-install v0.5.0
 	github.com/hashicorp/terraform-exec v0.18.1
 	github.com/hashicorp/terraform-json v0.15.0
+	github.com/onsi/gomega v1.18.1
 	k8s.io/apimachinery v0.24.1
 	k8s.io/client-go v0.24.1
 	sigs.k8s.io/controller-runtime v0.12.1
