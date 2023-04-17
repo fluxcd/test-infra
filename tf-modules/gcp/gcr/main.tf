@@ -1,3 +1,9 @@
+module "tags" {
+  source = "git::https://github.com/fluxcd/test-infra.git//tf-modules/utils/tags"
+
+  tags = var.tags
+}
+
 data "google_client_config" "this" {}
 
 data "google_container_registry_repository" "this" {
@@ -12,4 +18,5 @@ resource "google_artifact_registry_repository" "this" {
   repository_id = var.name
   description   = "example docker repository"
   format        = "DOCKER"
+  labels        = module.tags.tags
 }

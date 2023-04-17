@@ -8,3 +8,9 @@ variable "gcr_region" {
   type        = string
   default     = "" // Empty default to use gcr.io.
 }
+
+variable "tags" {
+  description = "Tags for the created resources"
+  type        = map(string)
+  default     = {}
+}

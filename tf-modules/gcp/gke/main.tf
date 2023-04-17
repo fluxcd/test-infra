@@ -1,3 +1,9 @@
+module "tags" {
+  source = "git::https://github.com/fluxcd/test-infra.git//tf-modules/utils/tags"
+
+  tags = var.tags
+}
+
 data "google_client_config" "this" {}
 
 resource "google_container_cluster" "primary" {
@@ -13,6 +19,7 @@ resource "google_container_cluster" "primary" {
       "https://www.googleapis.com/auth/cloud-platform"
     ]
   }
+  resource_labels = module.tags.tags
 }
 
 # auth module to retrieve kubeconfig of the created cluster.
