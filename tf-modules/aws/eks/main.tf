@@ -1,9 +1,21 @@
+module "tags" {
+  source = "git::https://github.com/fluxcd/test-infra.git//tf-modules/utils/tags"
+
+  tags = var.tags
+}
+
+provider "aws" {
+  default_tags {
+    tags = module.tags.tags
+  }
+}
+
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 19"
 
   cluster_name    = var.name
-  cluster_version = "1.23"
+  cluster_version = "1.25"
 
   # Maybe don't need any of these?
   cluster_endpoint_private_access = true
@@ -23,8 +35,9 @@ module "eks" {
   subnet_ids = module.vpc.private_subnets
 
   eks_managed_node_group_defaults = {
-    disk_size      = 50
-    instance_types = ["t2.medium"]
+    disk_size            = 50
+    instance_types       = ["t2.medium"]
+    launch_template_tags = module.tags.tags
   }
 
   eks_managed_node_groups = {
