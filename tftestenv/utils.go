@@ -17,8 +17,10 @@ limitations under the License.
 package tftestenv
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -36,11 +38,28 @@ const CreatedAtTimeLayout = "x2006-01-02_15h04m05s"
 
 // RunCommandOptions is used to configure the RunCommand execution.
 type RunCommandOptions struct {
-	Shell   string
+	// Shell is the name of the shell program used to run the command.
+	Shell string
+	// EnvVars is the environment variables used with the command.
 	EnvVars []string
 	// StdoutOnly can be enabled to only capture the stdout of the command
 	// output.
 	StdoutOnly bool
+	// Timeout is timeout for the command execution.
+	Timeout time.Duration
+	// AttachConsole attaches the stdout and stderr of the command to the
+	// console.
+	AttachConsole bool
+}
+
+// defaultRunCommandOptions adds default options of RunCommandOptions.
+func defaultRunCommandOptions(o *RunCommandOptions) {
+	if o.Shell == "" {
+		o.Shell = "bash"
+	}
+	if o.Timeout == 0 {
+		o.Timeout = 5 * time.Minute
+	}
 }
 
 // RunCommand executes the given command in a given directory.
@@ -54,24 +73,54 @@ func RunCommand(ctx context.Context, dir, command string, opts RunCommandOptions
 
 // RunCommandWithOutput executes the given command and returns the output.
 func RunCommandWithOutput(ctx context.Context, dir, command string, opts RunCommandOptions) ([]byte, error) {
-	shell := "bash"
+	defaultRunCommandOptions(&opts)
 
-	if opts.Shell != "" {
-		shell = opts.Shell
+	// If ctx has deadline, pass the context to the command, else create a new
+	// context with timeout from the run command option.
+	var timeoutCtx context.Context
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		timeoutCtx, cancel = context.WithTimeout(ctx, opts.Timeout)
+		defer cancel()
+	} else {
+		timeoutCtx = ctx
 	}
-
-	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-	defer cancel()
-	cmd := exec.CommandContext(timeoutCtx, shell, "-c", command)
+	cmd := exec.CommandContext(timeoutCtx, opts.Shell, "-c", command)
 	cmd.Dir = dir
 	// Add env vars.
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, opts.EnvVars...)
 
-	if opts.StdoutOnly {
-		return cmd.Output()
+	// Create writers to attach to the command.
+	outWriters := []io.Writer{}
+	errWriters := []io.Writer{}
+
+	// Append the writers with an output buffer to capture the command writes.
+	// If attach console is requested, append stdout. Append stderr only if
+	// StdoutOnly is not requested.
+	var output bytes.Buffer
+	outWriters = append(outWriters, &output)
+	if !opts.StdoutOnly {
+		errWriters = append(errWriters, &output)
 	}
-	return cmd.CombinedOutput()
+	if opts.AttachConsole {
+		outWriters = append(outWriters, os.Stdout)
+		if !opts.StdoutOnly {
+			errWriters = append(errWriters, os.Stderr)
+		}
+	}
+
+	outWr := io.MultiWriter(outWriters...)
+	errWr := io.MultiWriter(errWriters...)
+
+	// Assign writers to the command based on the configuration.
+	cmd.Stdout = outWr
+	if !opts.StdoutOnly {
+		cmd.Stderr = errWr
+	}
+
+	err := cmd.Run()
+	return output.Bytes(), err
 }
 
 // CreateAndPushImages randomly generates test images with the given tags and
