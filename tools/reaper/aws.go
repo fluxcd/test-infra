@@ -45,7 +45,7 @@ func queryAWS(binPath, jqPath, tagKey, tagVal string) string {
 // getAWSResources queries AWS for resources.
 func getAWSResources(ctx context.Context, cliPath, jqPath string) ([]resource, error) {
 	output, err := tftestenv.RunCommandWithOutput(ctx, "./",
-		queryAWS(cliPath, jqPath, *tagKey, *tagVal),
+		queryAWS(cliPath, jqPath, tagKey, tagVal),
 		tftestenv.RunCommandOptions{},
 	)
 	if err != nil {
@@ -113,6 +113,17 @@ func parseAWSResourceNameAndType(name string) (rName, rType string) {
 	} else {
 		rType = parts[0]
 		rName = parts[1]
+
+		if rType == "nodegroup" {
+			// For nodegroups, remove the prefix cluster name and suffix id. For
+			// example, for
+			// "flux-test-25722/blue-20230430202704844500000007/c8c3e9ec-7cec-8559-5037-774dd653e551"
+			// "blue-20230430202704844500000007" should be the name.
+			nameParts := strings.Split(rName, "/")
+			if len(nameParts) >= 2 {
+				rName = nameParts[1]
+			}
+		}
 	}
 
 	return rName, rType

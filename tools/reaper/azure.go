@@ -63,7 +63,7 @@ func deleteAzureResourceCmd(binPath, group, name, rType string) string {
 func getAzureResources(ctx context.Context, cliPath, jqPath string) ([]resource, error) {
 	// Query Resource Groups.
 	groupOutput, err := tftestenv.RunCommandWithOutput(ctx, "./",
-		queryAzureGroups(cliPath, jqPath, *tagKey, *tagVal),
+		queryAzureGroups(cliPath, jqPath, tagKey, tagVal),
 		tftestenv.RunCommandOptions{},
 	)
 	if err != nil {
@@ -76,7 +76,7 @@ func getAzureResources(ctx context.Context, cliPath, jqPath string) ([]resource,
 
 	// Query all the resources.
 	resourceOutput, err := tftestenv.RunCommandWithOutput(ctx, "./",
-		queryAzureResources(cliPath, jqPath, *tagKey, *tagVal),
+		queryAzureResources(cliPath, jqPath, tagKey, tagVal),
 		tftestenv.RunCommandOptions{},
 	)
 	if err != nil {

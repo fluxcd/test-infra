@@ -163,3 +163,47 @@ func TestParseJSONResources(t *testing.T) {
 		})
 	}
 }
+
+func TestParseTag(t *testing.T) {
+	tc := []struct {
+		name     string
+		tags     string
+		wantTags map[string]string
+		wantErr  bool
+	}{
+		{
+			name: "single tag",
+			tags: "foo1=bar1",
+			wantTags: map[string]string{
+				"foo1": "bar1",
+			},
+		},
+		{
+			name:    "multiple tag",
+			tags:    "foo1=bar1,foo2=bar2",
+			wantErr: true,
+		},
+		{
+			name:    "no tag",
+			tags:    "",
+			wantErr: true,
+		},
+		{
+			name:    "no val",
+			tags:    "foo1",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tc {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+
+			k, v, err := parseTag(tt.tags)
+			g.Expect(err != nil).To(Equal(tt.wantErr))
+			if err == nil {
+				g.Expect(tt.wantTags[k]).To(Equal(v))
+			}
+		})
+	}
+}

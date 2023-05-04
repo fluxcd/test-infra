@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"log"
 	"os/exec"
+	"strings"
 	"time"
 )
 
@@ -65,12 +66,17 @@ var (
 	supportedProviders = []string{aws, azure, gcp}
 	targetProvider     = flag.String("provider", "", fmt.Sprintf("name of the provider %v", supportedProviders))
 	gcpProject         = flag.String("gcpproject", "", "GCP project name")
-	tagKey             = flag.String("tagkey", "", "tag key to query with")
-	tagVal             = flag.String("tagval", "", "tag value to query with")
+	tags               = flag.String("tags", "", "key-value pair of tag to query with. Only single pair supported at present ('environment=dev')")
 	retentionPeriod    = flag.String("retention-period", "", "period for which the resources should be retained (e.g.: 1d, 1h)")
 	jsonoutput         = flag.Bool("ojson", false, "JSON output")
 	delete             = flag.Bool("delete", false, "delete the resources")
 	timeout            = flag.String("timeout", "15m", "timeout")
+
+	// TODO: When adding multiple tags support, get rid of these global tag
+	// values and pass the tags between the functions. Implement a cloud
+	// provider specific query builder based on a give map of tags.
+	tagKey string
+	tagVal string
 )
 
 func main() {
@@ -106,12 +112,9 @@ func main() {
 		log.Fatalf("Unsupported provider %q, must be one of %v", *targetProvider, supportedProviders)
 	}
 
-	if *tagKey == "" {
-		log.Fatalf("-tagkey flag must be set with tag key")
-	}
-
-	if *tagVal == "" {
-		log.Fatalf("-tagval flag must be set with tag value")
+	tagKey, tagVal, err = parseTag(*tags)
+	if err != nil {
+		log.Fatalf("Failed parsing tags: %v", err)
 	}
 
 	// Query resources based on the target provider.
@@ -249,4 +252,21 @@ func parseJSONResources(r []byte) ([]resource, error) {
 		return nil, fmt.Errorf("failed to unmarshal: %w", err)
 	}
 	return resources, nil
+}
+
+// parseTag parse tags.
+// TODO: Add support for multiple key-value pairs after adding support for
+// multiple tag query for all the cloud providers.
+func parseTag(tags string) (string, string, error) {
+	if tags == "" {
+		return "", "", errors.New("-tags flag must be set with tag key")
+	}
+	parts := strings.Split(tags, "=")
+	if len(parts) < 2 {
+		return "", "", errors.New("unvalid tags, must have a key and a value separated by '='")
+	}
+	if len(parts) > 2 {
+		return "", "", errors.New("only single key-value tag is supported at present")
+	}
+	return parts[0], parts[1], nil
 }

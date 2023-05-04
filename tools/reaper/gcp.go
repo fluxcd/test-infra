@@ -51,7 +51,7 @@ func deleteGCPClusterCmd(binPath, project, name, location string) string {
 // getGCPResources queries GCP for resources.
 func getGCPResources(ctx context.Context, cliPath, jqPath string) ([]resource, error) {
 	output, err := tftestenv.RunCommandWithOutput(ctx, "./",
-		queryGCP(cliPath, jqPath, *gcpProject, *tagKey, *tagVal),
+		queryGCP(cliPath, jqPath, *gcpProject, tagKey, tagVal),
 		tftestenv.RunCommandOptions{},
 	)
 	if err != nil {

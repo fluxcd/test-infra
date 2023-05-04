@@ -97,6 +97,20 @@ func TestAWSResourceToResource(t *testing.T) {
 			wantType: "log-group",
 			wantName: "NoName",
 		},
+		{
+			name: "nodegroup name",
+			resource: awsResource{
+				ResourceARN: "arn:aws:ecr:us-east-2:1111111111:nodegroup/flux-test-25722/blue-20230430202704844500000007/c8c3e9ec-7cec-8559-5037-774dd653e551",
+				Tags: []map[string]string{
+					{
+						"Key":   "foo",
+						"Value": "bar",
+					},
+				},
+			},
+			wantType: "nodegroup",
+			wantName: "blue-20230430202704844500000007",
+		},
 	}
 
 	for _, tt := range tc {
