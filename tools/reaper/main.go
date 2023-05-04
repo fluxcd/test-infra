@@ -19,14 +19,10 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"os/exec"
-	"strings"
-
-	"github.com/fluxcd/test-infra/tftestenv"
 )
 
 // resource is a common representation of a cloud resource with the minimal
@@ -37,52 +33,6 @@ type resource struct {
 	Location      string            `json:"location"`
 	Tags          map[string]string `json:"tags"`
 	ResourceGroup string            `json:"resourceGroup"`
-}
-
-// awsResource is a representation of AWS resource data obtained by the
-// Resource Groups Tagging API. This is used as an intermediate representation
-// before converting to resource.
-type awsResource struct {
-	ResourceARN string
-	Tags        []map[string]string
-}
-
-// queryGCP returns a GCP command for querying all the resources in a specific
-// format compatible with the resource type.
-func queryGCP(binPath, jqPath, project, labelKey, labelVal string) string {
-	return fmt.Sprintf(`%[1]s asset search-all-resources --project %[3]s --query='labels.%[4]s=%[5]s' --format=json |
-			%[2]s '.[] |
-			{"name": "\(.displayName)", "type": "\(.assetType)", "location": "\(.location)", "resourceGroup": "%[3]s", "tags": .labels}' |
-			%[2]s -s '.'`,
-		binPath, jqPath, project, labelKey, labelVal)
-}
-
-// queryAzureGroups returns an Azure command for querying all the resource
-// groups in a specific format compatible with the resource type.
-func queryAzureGroups(binPath, jqPath, tagKey, tagVal string) string {
-	return fmt.Sprintf(`%[1]s group list --tag '%[3]s=%[4]s' |
-			%[2]s '.[] |
-			{name, type, tags, location}' |
-			%[2]s -s '.'`,
-		binPath, jqPath, tagKey, tagVal)
-}
-
-// queryAzureResources returns an Azure command for querying all the resources
-// in a specific format compatible with the resource type.
-func queryAzureResources(binPath, jqPath, tagKey, tagVal string) string {
-	return fmt.Sprintf(`%[1]s resource list --tag '%[3]s=%[4]s' |
-			%[2]s '.[] |
-			{name, type, tags, location}' |
-			%[2]s -s '.'`,
-		binPath, jqPath, tagKey, tagVal)
-}
-
-// queryAWS returns an AWS command for querying all the resources in a specific
-// format compatible with the resource type.
-func queryAWS(binPath, jqPath, tagKey, tagVal string) string {
-	return fmt.Sprintf(`%[1]s resourcegroupstaggingapi get-resources --tag-filters Key=%[3]s,Values=%[4]s |
-			%[2]s '.ResourceTagMappingList'`,
-		binPath, jqPath, tagKey, tagVal)
 }
 
 var (
@@ -188,80 +138,6 @@ func main() {
 	}
 }
 
-// getAWSResources queries AWS for resources.
-func getAWSResources(ctx context.Context, cliPath, jqPath string) ([]resource, error) {
-	output, err := tftestenv.RunCommandWithOutput(ctx, "./",
-		queryAWS(cliPath, jqPath, *tagKey, *tagVal),
-		tftestenv.RunCommandOptions{},
-	)
-	if err != nil {
-		return nil, err
-	}
-	return parseAWSJSONResources(output)
-}
-
-// getAzureResources queries Azure for resources. Azure has two separate APIs
-// for listing Resource Groups and all the other resources. Query both and
-// combine the result.
-func getAzureResources(ctx context.Context, cliPath, jqPath string) ([]resource, error) {
-	// Query Resource Groups.
-	groupOutput, err := tftestenv.RunCommandWithOutput(ctx, "./",
-		queryAzureGroups(cliPath, jqPath, *tagKey, *tagVal),
-		tftestenv.RunCommandOptions{},
-	)
-	if err != nil {
-		return nil, err
-	}
-	groupResources, err := parseJSONResources(groupOutput)
-	if err != nil {
-		return nil, err
-	}
-
-	// Query all the resources.
-	resourceOutput, err := tftestenv.RunCommandWithOutput(ctx, "./",
-		queryAzureResources(cliPath, jqPath, *tagKey, *tagVal),
-		tftestenv.RunCommandOptions{},
-	)
-	if err != nil {
-		return nil, err
-	}
-	allResources, err := parseJSONResources(resourceOutput)
-	if err != nil {
-		return nil, err
-	}
-
-	return append(groupResources, allResources...), nil
-}
-
-// getGCPResources queries GCP for resources.
-func getGCPResources(ctx context.Context, cliPath, jqPath string) ([]resource, error) {
-	output, err := tftestenv.RunCommandWithOutput(ctx, "./",
-		queryGCP(cliPath, jqPath, *gcpProject, *tagKey, *tagVal),
-		tftestenv.RunCommandOptions{},
-	)
-	if err != nil {
-		return nil, err
-	}
-	return parseJSONResources(output)
-}
-
-// getGCPDefaultProject queries for the gcloud default/current project.
-func getGCPDefaultProject(ctx context.Context, cliPath string) (string, error) {
-	// Read only the stdout for valid project value or empty result.
-	project, err := tftestenv.RunCommandWithOutput(ctx, "./",
-		fmt.Sprintf("%s config get-value project", cliPath),
-		tftestenv.RunCommandOptions{StdoutOnly: true},
-	)
-	if err != nil {
-		return "", err
-	}
-	p := strings.TrimSpace(string(project))
-	if p == "" {
-		return "", errors.New("no default GCP project found")
-	}
-	return p, nil
-}
-
 // parseJSONResources parses the result of resource query into Resource(s).
 func parseJSONResources(r []byte) ([]resource, error) {
 	var resources []resource
@@ -269,62 +145,4 @@ func parseJSONResources(r []byte) ([]resource, error) {
 		return nil, fmt.Errorf("failed to unmarshal: %w", err)
 	}
 	return resources, nil
-}
-
-// parseAWSJSONResources parses the result of resource query into Resource(s).
-func parseAWSJSONResources(r []byte) ([]resource, error) {
-	// Convert to AWSResources.
-	var awsResources []awsResource
-	if err := json.Unmarshal(r, &awsResources); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal: %w", err)
-	}
-
-	resources := []resource{}
-	for _, ar := range awsResources {
-		resources = append(resources, awsResourceToResource(ar))
-	}
-
-	return resources, nil
-}
-
-// awsResourceToResource converts an AWSResource into a Resource.
-func awsResourceToResource(r awsResource) resource {
-	// Extract information from the ARN.
-	parts := strings.Split(r.ResourceARN, ":")
-	rName, rType := parseAWSResourceNameAndType(parts[5])
-	rLocation := parts[3]
-	accountID := parts[4]
-
-	rTags := map[string]string{}
-	for _, t := range r.Tags {
-		rTags[t["Key"]] = t["Value"]
-	}
-
-	return resource{
-		Name:          rName,
-		Type:          rType,
-		Location:      rLocation,
-		Tags:          rTags,
-		ResourceGroup: accountID,
-	}
-}
-
-// parseAWSResourceNameAndType separates resource name and type from the given
-// slice of an ARN. For example, for ARN
-// "arn:aws:ecr:us-east-2:1111111111:repository/test-repo-flux-test-31457", the
-// last slice "repository/test-repo-flux-test-31457" is the input which results
-// in "test-repo-flux-test-31457" as the name and "repository" as the type.
-func parseAWSResourceNameAndType(name string) (rName, rType string) {
-	parts := strings.SplitN(name, "/", 2)
-	if len(parts) < 2 {
-		// Some resources like "log-group" don't have a name. Use a placeholder
-		// name for such resources.
-		rType = parts[0]
-		rName = "NoName"
-	} else {
-		rType = parts[0]
-		rName = parts[1]
-	}
-
-	return rName, rType
 }
