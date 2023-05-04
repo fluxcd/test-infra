@@ -38,10 +38,22 @@ const CreatedAtTimeLayout = "x2006-01-02_15h04m05s"
 type RunCommandOptions struct {
 	Shell   string
 	EnvVars []string
+	// StdoutOnly can be enabled to only capture the stdout of the command
+	// output.
+	StdoutOnly bool
 }
 
-// RunCommand executes given command in a given directory.
+// RunCommand executes the given command in a given directory.
 func RunCommand(ctx context.Context, dir, command string, opts RunCommandOptions) error {
+	output, err := RunCommandWithOutput(ctx, dir, command, opts)
+	if err != nil {
+		return fmt.Errorf("failed to run command %s: %v", string(output), err)
+	}
+	return nil
+}
+
+// RunCommandWithOutput executes the given command and returns the output.
+func RunCommandWithOutput(ctx context.Context, dir, command string, opts RunCommandOptions) ([]byte, error) {
 	shell := "bash"
 
 	if opts.Shell != "" {
@@ -56,11 +68,10 @@ func RunCommand(ctx context.Context, dir, command string, opts RunCommandOptions
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, opts.EnvVars...)
 
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to run command %s: %v", string(output), err)
+	if opts.StdoutOnly {
+		return cmd.Output()
 	}
-	return nil
+	return cmd.CombinedOutput()
 }
 
 // CreateAndPushImages randomly generates test images with the given tags and
