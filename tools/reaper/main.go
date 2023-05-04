@@ -32,10 +32,11 @@ import (
 // resource is a common representation of a cloud resource with the minimal
 // attributes needed to uniquely identify them.
 type resource struct {
-	Name     string            `json:"name"`
-	Type     string            `json:"type"`
-	Location string            `json:"location"`
-	Tags     map[string]string `json:"tags"`
+	Name          string            `json:"name"`
+	Type          string            `json:"type"`
+	Location      string            `json:"location"`
+	Tags          map[string]string `json:"tags"`
+	ResourceGroup string            `json:"resourceGroup"`
 }
 
 // awsResource is a representation of AWS resource data obtained by the
@@ -51,7 +52,7 @@ type awsResource struct {
 func queryGCP(binPath, jqPath, project, labelKey, labelVal string) string {
 	return fmt.Sprintf(`%[1]s asset search-all-resources --project %[3]s --query='labels.%[4]s=%[5]s' --format=json |
 			%[2]s '.[] |
-			{"name": "\(.displayName)", "type": "\(.assetType)", "location": "\(.location)", "tags": .labels}' |
+			{"name": "\(.displayName)", "type": "\(.assetType)", "location": "\(.location)", "resourceGroup": "%[3]s", "tags": .labels}' |
 			%[2]s -s '.'`,
 		binPath, jqPath, project, labelKey, labelVal)
 }
@@ -292,6 +293,7 @@ func awsResourceToResource(r awsResource) resource {
 	parts := strings.Split(r.ResourceARN, ":")
 	rName, rType := parseAWSResourceNameAndType(parts[5])
 	rLocation := parts[3]
+	accountID := parts[4]
 
 	rTags := map[string]string{}
 	for _, t := range r.Tags {
@@ -299,10 +301,11 @@ func awsResourceToResource(r awsResource) resource {
 	}
 
 	return resource{
-		Name:     rName,
-		Type:     rType,
-		Location: rLocation,
-		Tags:     rTags,
+		Name:          rName,
+		Type:          rType,
+		Location:      rLocation,
+		Tags:          rTags,
+		ResourceGroup: accountID,
 	}
 }
 
