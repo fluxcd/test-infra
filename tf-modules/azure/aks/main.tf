@@ -1,6 +1,13 @@
+module "tags" {
+  source = "git::https://github.com/fluxcd/test-infra.git//tf-modules/utils/tags"
+
+  tags = var.tags
+}
+
 resource "azurerm_resource_group" "this" {
   name     = var.name
   location = var.location
+  tags     = module.tags.tags
 }
 
 resource "azurerm_kubernetes_cluster" "this" {
@@ -22,4 +29,5 @@ resource "azurerm_kubernetes_cluster" "this" {
     network_plugin = "kubenet"
     network_policy = "calico"
   }
+  tags = module.tags.tags
 }

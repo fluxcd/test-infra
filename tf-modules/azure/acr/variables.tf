@@ -18,3 +18,9 @@ variable "resource_group" {
   description = "Name of the resource group in which the ACR instance is created"
   type        = string
 }
+
+variable "tags" {
+  description = "Tags for the created resources"
+  type        = map(string)
+  default     = {}
+}

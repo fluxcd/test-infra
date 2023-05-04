@@ -30,6 +30,10 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
+// CreatedAtTimeLayout is a time layout for the 'createdat' label/tag on cloud
+// resources.
+const CreatedAtTimeLayout = "x2006-01-02_15h04m05s"
+
 // RunCommandOptions is used to configure the RunCommand execution.
 type RunCommandOptions struct {
 	Shell   string
@@ -101,9 +105,17 @@ func RetagAndPush(ctx context.Context, localImage, remoteImage string) error {
 	); err != nil {
 		return err
 	}
-	
+
 	return RunCommand(ctx, "./",
 		fmt.Sprintf("docker push %s", remoteImage),
 		RunCommandOptions{},
 	)
+}
+
+// ParseCreatedAtTime parses 'createdat' label/tag on resources. The time value
+// is in a custom format due to the label/tag value restrictions on various
+// cloud platforms. See tf-modules/utils/tags for details about the custom
+// format.
+func ParseCreatedAtTime(createdat string) (time.Time, error) {
+	return time.Parse(CreatedAtTimeLayout, createdat)
 }
