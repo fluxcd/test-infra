@@ -35,5 +35,4 @@ $ go run ./ -provider gcp -tagkey environment -tagval dev -ojson
 ```
 
 **TODO:**
-- Filtering of resources based on their age.
 - Delete the resources.

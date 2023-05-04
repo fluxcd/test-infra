@@ -6,6 +6,7 @@ replace github.com/fluxcd/test-infra/tftestenv => ../../tftestenv
 
 require (
 	github.com/fluxcd/test-infra/tftestenv v0.0.0
+	github.com/k1LoW/duration v1.2.0
 	github.com/onsi/gomega v1.18.1
 )
 

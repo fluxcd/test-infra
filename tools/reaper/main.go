@@ -90,6 +90,7 @@ var (
 	gcpProject         = flag.String("gcpproject", "", "GCP project name")
 	tagKey             = flag.String("tagkey", "", "tag key to query with")
 	tagVal             = flag.String("tagval", "", "tag value to query with")
+	retentionPeriod    = flag.String("retention-period", "", "period for which the resources should be retained (e.g.: 1d, 1h)")
 	jsonoutput         = flag.Bool("ojson", false, "JSON output")
 )
 
@@ -165,7 +166,12 @@ func main() {
 	}
 
 	// Print only the result to stdout.
-	// TODO: Add time based filtering of the obtained resources.
+	if *retentionPeriod != "" {
+		resources, err = applyRetentionFilter(resources, *retentionPeriod)
+		if err != nil {
+			log.Fatalf("Failed to filter resources with retention-period: %v", err)
+		}
+	}
 
 	if *jsonoutput {
 		out, err := json.MarshalIndent(resources, "", "  ")
