@@ -38,9 +38,23 @@ func queryAzureGroups(binPath, jqPath, tagKey, tagVal string) string {
 func queryAzureResources(binPath, jqPath, tagKey, tagVal string) string {
 	return fmt.Sprintf(`%[1]s resource list --tag '%[3]s=%[4]s' |
 			%[2]s '.[] |
-			{name, type, tags, location}' |
+			{name, type, tags, location, resourceGroup}' |
 			%[2]s -s '.'`,
 		binPath, jqPath, tagKey, tagVal)
+}
+
+// deleteAzureResourceGroupCmd returns an Azure command for deleting a resource
+// group.
+func deleteAzureResourceGroupCmd(binPath, name string) string {
+	return fmt.Sprintf(`%[1]s group delete --name %[2]s --yes`,
+		binPath, name)
+}
+
+// deleteAzureResourceCmd returns an Azure command for deleting any given
+// resource in a resource group.
+func deleteAzureResourceCmd(binPath, group, name, rType string) string {
+	return fmt.Sprintf(`%[1]s resource delete --resource-group %[2]s --name %[3]s --resource-type "%[4]s"`,
+		binPath, group, name, rType)
 }
 
 // getAzureResources queries Azure for resources. Azure has two separate APIs
@@ -74,4 +88,25 @@ func getAzureResources(ctx context.Context, cliPath, jqPath string) ([]resource,
 	}
 
 	return append(groupResources, allResources...), nil
+}
+
+// deleteAzureResourceGroup deletes an Azure resource group.
+func deleteAzureResourceGroup(ctx context.Context, cliPath string, res resource) error {
+	_, err := tftestenv.RunCommandWithOutput(ctx, "./",
+		deleteAzureResourceGroupCmd(cliPath, res.Name),
+		tftestenv.RunCommandOptions{AttachConsole: true},
+	)
+	return err
+}
+
+// deleteAzureResource deletes an Azure resource.
+// NOTE: This is unused for now as deleting the resource groups deletes
+// everything. Use it in the future when there's a need to delete individual
+// resources regardless of their resource groups.
+func deleteAzureResource(ctx context.Context, cliPath string, res resource) error {
+	_, err := tftestenv.RunCommandWithOutput(ctx, "./",
+		deleteAzureResourceCmd(cliPath, res.ResourceGroup, res.Name, res.Type),
+		tftestenv.RunCommandOptions{AttachConsole: true},
+	)
+	return err
 }

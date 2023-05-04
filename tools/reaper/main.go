@@ -19,11 +19,37 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"os/exec"
+	"time"
 )
+
+const (
+	aws   = "aws"
+	azure = "azure"
+	gcp   = "gcp"
+)
+
+// registryTypes maps the registry type resources with their resource.Type value
+// in different providers. This is used to identify that a given resource is a
+// registry in a particular provider.
+var registryTypes map[string]string = map[string]string{
+	aws:   "repository",
+	azure: "Microsoft.ContainerRegistry/registries",
+	gcp:   "artifactregistry.googleapis.com/Repository",
+}
+
+// clusterTypes maps the cluster type resource with their resource.Type value in
+// different providers. This is used to identify that a given resource is a
+// cluster in a particular provider.
+var clusterTypes map[string]string = map[string]string{
+	aws:   "cluster",
+	azure: "Microsoft.ContainerService/managedClusters",
+	gcp:   "container.googleapis.com/Cluster",
+}
 
 // resource is a common representation of a cloud resource with the minimal
 // attributes needed to uniquely identify them.
@@ -36,19 +62,29 @@ type resource struct {
 }
 
 var (
-	supportedProviders = []string{"aws", "azure", "gcp"}
+	supportedProviders = []string{aws, azure, gcp}
 	targetProvider     = flag.String("provider", "", fmt.Sprintf("name of the provider %v", supportedProviders))
 	gcpProject         = flag.String("gcpproject", "", "GCP project name")
 	tagKey             = flag.String("tagkey", "", "tag key to query with")
 	tagVal             = flag.String("tagval", "", "tag value to query with")
 	retentionPeriod    = flag.String("retention-period", "", "period for which the resources should be retained (e.g.: 1d, 1h)")
 	jsonoutput         = flag.Bool("ojson", false, "JSON output")
+	delete             = flag.Bool("delete", false, "delete the resources")
+	timeout            = flag.String("timeout", "15m", "timeout")
 )
 
 func main() {
 	flag.Parse()
 
-	ctx := context.Background()
+	// Paths of the cloud provider CLI binaries.
+	var awsPath, azPath, gcloudPath string
+
+	t, err := time.ParseDuration(*timeout)
+	if err != nil {
+		log.Fatalf("Failed parsing timeout: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), t)
+	defer cancel()
 
 	jqBinPath, err := exec.LookPath("jq")
 	if err != nil {
@@ -83,20 +119,20 @@ func main() {
 	var queryErr error
 
 	switch *targetProvider {
-	case "aws":
-		path, err := exec.LookPath("aws")
+	case aws:
+		awsPath, err = exec.LookPath("aws")
 		if err != nil {
 			log.Fatalln(err)
 		}
-		resources, queryErr = getAWSResources(ctx, path, jqBinPath)
-	case "azure":
-		path, err := exec.LookPath("az")
+		resources, queryErr = getAWSResources(ctx, awsPath, jqBinPath)
+	case azure:
+		azPath, err = exec.LookPath("az")
 		if err != nil {
 			log.Fatalln(err)
 		}
-		resources, queryErr = getAzureResources(ctx, path, jqBinPath)
-	case "gcp":
-		path, err := exec.LookPath("gcloud")
+		resources, queryErr = getAzureResources(ctx, azPath, jqBinPath)
+	case gcp:
+		gcloudPath, err = exec.LookPath("gcloud")
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -104,20 +140,20 @@ func main() {
 		// Unlike other providers, GCP requires a project to be set.
 		if *gcpProject == "" {
 			log.Println("-gcpproject flag unset. Checking for default gcloud project...")
-			p, err := getGCPDefaultProject(ctx, path)
+			p, err := getGCPDefaultProject(ctx, gcloudPath)
 			if err != nil {
 				log.Fatalf("Failed looking for default gcloud project: %v", err)
 			}
 			*gcpProject = p
 		}
-		resources, queryErr = getGCPResources(ctx, path, jqBinPath)
+		resources, queryErr = getGCPResources(ctx, gcloudPath, jqBinPath)
 	}
 	if queryErr != nil {
 		log.Fatalf("Query error: %v", queryErr)
 	}
 
 	// Print only the result to stdout.
-	if *retentionPeriod != "" {
+	if *retentionPeriod != "" && len(resources) > 0 {
 		resources, err = applyRetentionFilter(resources, *retentionPeriod)
 		if err != nil {
 			log.Fatalf("Failed to filter resources with retention-period: %v", err)
@@ -136,10 +172,78 @@ func main() {
 			fmt.Printf("%s: %s\n", r.Type, r.Name)
 		}
 	}
+
+	// Delete the resources.
+	if *delete && len(resources) > 0 {
+		log.Printf("Deleting resources...")
+
+		switch *targetProvider {
+		case aws:
+			log.Println("Unimplemented for provider AWS.")
+		case azure:
+			groups := getAzureResourceGroups(resources)
+			for _, group := range groups {
+				if err := deleteAzureResourceGroup(ctx, azPath, group); err != nil {
+					log.Fatalf("Failed to delete resource group: %v", err)
+				}
+			}
+		case gcp:
+			registries := getRegistries(*targetProvider, resources)
+			for _, registry := range registries {
+				if err := deleteGCPArtifactRepository(ctx, gcloudPath, registry); err != nil {
+					log.Fatalf("Failed to delete registries: %v", err)
+				}
+			}
+
+			clusters := getClusters(*targetProvider, resources)
+			for _, cluster := range clusters {
+				if err := deleteGCPCluster(ctx, gcloudPath, cluster); err != nil {
+					log.Fatalf("Failed to delete cluster: %v", err)
+				}
+			}
+		}
+	}
+}
+
+func getRegistries(provider string, resources []resource) []resource {
+	result := []resource{}
+	for _, r := range resources {
+		if r.Type == registryTypes[provider] {
+			result = append(result, r)
+		}
+	}
+	return result
+}
+
+func getClusters(provider string, resources []resource) []resource {
+	result := []resource{}
+	for _, r := range resources {
+		if r.Type == clusterTypes[provider] {
+			result = append(result, r)
+		}
+	}
+	return result
+}
+
+func getAzureResourceGroups(resources []resource) []resource {
+	result := []resource{}
+	for _, r := range resources {
+		if r.Type == "Microsoft.Resources/resourceGroups" {
+			// AKS managed clusters create additional resource groups. Only
+			// include independent resource groups.
+			if _, ok := r.Tags["aks-managed-cluster-rg"]; !ok {
+				result = append(result, r)
+			}
+		}
+	}
+	return result
 }
 
 // parseJSONResources parses the result of resource query into Resource(s).
 func parseJSONResources(r []byte) ([]resource, error) {
+	if len(r) == 0 {
+		return nil, errors.New("failed to JSON parse empty bytes")
+	}
 	var resources []resource
 	if err := json.Unmarshal(r, &resources); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal: %w", err)

@@ -35,6 +35,19 @@ func queryGCP(binPath, jqPath, project, labelKey, labelVal string) string {
 		binPath, jqPath, project, labelKey, labelVal)
 }
 
+// deleteGCPArtifactRepositoryCmd returns a gcloud command for deleting a Google
+// Artifact Repository instance.
+func deleteGCPArtifactRepositoryCmd(binPath, project, name, location string) string {
+	return fmt.Sprintf(`%[1]s artifacts repositories delete %[3]s --project %[2]s --location %[4]s --quiet`,
+		binPath, project, name, location)
+}
+
+// deleteGCPClusterCmd returns a gcloud command for deleting a GKE cluster.
+func deleteGCPClusterCmd(binPath, project, name, location string) string {
+	return fmt.Sprintf(`%[1]s container clusters delete %[3]s --project %[2]s --location %[4]s --quiet`,
+		binPath, project, name, location)
+}
+
 // getGCPResources queries GCP for resources.
 func getGCPResources(ctx context.Context, cliPath, jqPath string) ([]resource, error) {
 	output, err := tftestenv.RunCommandWithOutput(ctx, "./",
@@ -62,4 +75,22 @@ func getGCPDefaultProject(ctx context.Context, cliPath string) (string, error) {
 		return "", errors.New("no default GCP project found")
 	}
 	return p, nil
+}
+
+// deleteGCPCluster deletes a GKE cluster.
+func deleteGCPCluster(ctx context.Context, cliPath string, res resource) error {
+	_, err := tftestenv.RunCommandWithOutput(ctx, "./",
+		deleteGCPClusterCmd(cliPath, res.ResourceGroup, res.Name, res.Location),
+		tftestenv.RunCommandOptions{AttachConsole: true},
+	)
+	return err
+}
+
+// deleteGCPArtifactRepository deletes a Google Artifact Repository.
+func deleteGCPArtifactRepository(ctx context.Context, cliPath string, res resource) error {
+	_, err := tftestenv.RunCommandWithOutput(ctx, "./",
+		deleteGCPArtifactRepositoryCmd(cliPath, res.ResourceGroup, res.Name, res.Location),
+		tftestenv.RunCommandOptions{AttachConsole: true},
+	)
+	return err
 }

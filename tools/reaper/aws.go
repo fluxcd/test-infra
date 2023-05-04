@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -50,11 +51,17 @@ func getAWSResources(ctx context.Context, cliPath, jqPath string) ([]resource, e
 	if err != nil {
 		return nil, err
 	}
+	if len(output) == 0 {
+		return nil, nil
+	}
 	return parseAWSJSONResources(output)
 }
 
 // parseAWSJSONResources parses the result of resource query into Resource(s).
 func parseAWSJSONResources(r []byte) ([]resource, error) {
+	if len(r) == 0 {
+		return nil, errors.New("failed to JSON parse empty bytes")
+	}
 	// Convert to AWSResources.
 	var awsResources []awsResource
 	if err := json.Unmarshal(r, &awsResources); err != nil {
