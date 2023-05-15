@@ -249,7 +249,9 @@ func parseJSONResources(r []byte) ([]resource, error) {
 	}
 	var resources []resource
 	if err := json.Unmarshal(r, &resources); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal: %w", err)
+		// When unmarshal fails, provide the full output response to make it
+		// easier to see the content of response that it failed to unmarshal.
+		return nil, fmt.Errorf("failed to unmarshal: %w, content: %q", err, string(r))
 	}
 	return resources, nil
 }
