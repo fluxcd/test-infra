@@ -36,7 +36,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog/v2/klogr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	runtimeLog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var shutdownSignals = []os.Signal{os.Interrupt, syscall.SIGTERM}
@@ -109,6 +111,9 @@ func WithBuildDir(dir string) EnvironmentOption {
 // created cluster is constructed at the given kubeconfigPath which is then used
 // to construct a kubernetes client that can be used in the tests.
 func New(ctx context.Context, scheme *runtime.Scheme, terraformPath string, kubeconfigPath string, opts ...EnvironmentOption) (*Environment, error) {
+	// Set a default logger if not set already.
+	runtimeLog.SetLogger(klogr.New())
+
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
