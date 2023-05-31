@@ -10,8 +10,9 @@ variable "location" {
 }
 
 variable "aks_principal_id" {
-  description = "Principal ID of the AKS cluster for role assignment to allow image pull from registry"
-  type        = string
+  description = "A list of Principal IDs for role assignment to allow image pull from registry"
+  type        = list(string)
+  default     = []
 }
 
 variable "resource_group" {

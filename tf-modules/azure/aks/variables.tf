@@ -14,3 +14,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "enable_wi" {
+  description = "Enable Workload Identity and OIDC Issuer on the cluster"
+  type        = bool
+  default     = false
+}

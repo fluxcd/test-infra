@@ -1,7 +1,11 @@
 # AKS Module
 
-Configuration in this directory creates an AKS cluster with minimal
+Configuration in this directory creates an AKS cluster with the minimal
 configurations that's suitable for flux tests.
+
+__NOTE:__ When enabling Workload Identity, please ensure that the current
+subscription has the `EnableWorkloadIdentityPreview` feature flag registered.
+For more information, please see [the docs](https://learn.microsoft.com/en-us/azure/aks/workload-identity-deploy-cluster#register-the-enableworkloadidentitypreview-feature-flag).
 
 ## Usage
 

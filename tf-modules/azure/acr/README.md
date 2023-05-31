@@ -28,7 +28,7 @@ module "acr" {
 
     name = "fluxTestRepo${random_pet.suffix.id}"
     location = "eastus"
-    aks_principal_id = module.aks.principal_id
+    aks_principal_id = [module.aks.principal_id]
     resource_group = module.aks.resource_group
 
     depends_on = [module.aks]
