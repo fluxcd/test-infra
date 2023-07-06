@@ -8,3 +8,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "region" {
+  description = "Region for the Kubernetes region"
+  default     = ""
+  type        = string
+}

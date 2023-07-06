@@ -8,6 +8,7 @@ provider "aws" {
   default_tags {
     tags = module.tags.tags
   }
+  region = var.region
 }
 
 module "eks" {

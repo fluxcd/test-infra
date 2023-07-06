@@ -8,6 +8,8 @@ provider "aws" {
   default_tags {
     tags = module.tags.tags
   }
+
+  region = var.region
 }
 
 resource "aws_ecr_repository" "this" {
