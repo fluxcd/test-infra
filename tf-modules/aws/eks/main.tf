@@ -4,12 +4,6 @@ module "tags" {
   tags = var.tags
 }
 
-provider "aws" {
-  default_tags {
-    tags = module.tags.tags
-  }
-}
-
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 19"
@@ -51,6 +45,8 @@ module "eks" {
       capacity_type  = "SPOT"
     }
   }
+
+  tags = module.tags.tags
 }
 
 data "aws_caller_identity" "current" {}
@@ -83,4 +79,6 @@ module "vpc" {
     "kubernetes.io/cluster/${var.name}" = "shared"
     "kubernetes.io/role/internal-elb"   = 1
   }
+
+  tags = module.tags.tags
 }

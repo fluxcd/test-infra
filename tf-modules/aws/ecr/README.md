@@ -10,7 +10,7 @@ provider "aws" {}
 
 resource "random_pet" "suffix" {}
 
-module "eks" {
+module "ecr" {
     source = "git::https://github.com/fluxcd/test-infra.git//tf-modules/aws/ecr"
 
     name = "flux-test-${random_pet.suffix.id}"
