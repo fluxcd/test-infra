@@ -4,14 +4,9 @@ module "tags" {
   tags = var.tags
 }
 
-provider "aws" {
-  default_tags {
-    tags = module.tags.tags
-  }
-}
-
 resource "aws_ecr_repository" "this" {
   name                 = var.name
   image_tag_mutability = "MUTABLE"
   force_delete         = true
+  tags                 = module.tags.tags
 }
