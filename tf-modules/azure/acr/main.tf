@@ -9,7 +9,7 @@ resource "azurerm_container_registry" "this" {
   resource_group_name = var.resource_group
   location            = var.location
   sku                 = "Basic"
-  admin_enabled       = false
+  admin_enabled       = var.admin_enabled
   tags                = module.tags.tags
 }
 
