@@ -20,6 +20,12 @@ variable "resource_group" {
   type        = string
 }
 
+variable "admin_enabled" {
+  description = "Specifies whether the admin user is enabled in the registry."
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Tags for the created resources"
   type        = map(string)
