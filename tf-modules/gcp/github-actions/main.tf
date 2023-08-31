@@ -11,6 +11,7 @@ locals {
 resource "google_service_account" "service_account" {
   account_id   = var.gcp_service_account_id
   display_name = var.gcp_service_account_name
+  description  = var.gcp_service_account_description
 }
 
 resource "google_project_iam_member" "role_binding" {

@@ -31,6 +31,11 @@ variable "gcp_service_account_name" {
   type        = string
 }
 
+variable "gcp_service_account_description" {
+  description = "GCP Service Account description"
+  type        = string
+}
+
 variable "gcp_roles" {
   description = "List of permissions to grant to the service account"
   type        = list(string)
