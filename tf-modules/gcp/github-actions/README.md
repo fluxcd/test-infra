@@ -25,8 +25,9 @@ provider "google" {}
 module "gcp_gh_actions" {
     source = "git::https://github.com/fluxcd/test-infra.git//tf-modules/gcp/github-actions"
 
-    gcp_service_account_id = "test-sa-1"
-    gcp_service_account_name = "test-sa-1"
+    gcp_service_account_id          = "test-sa-1"
+    gcp_service_account_name        = "test-sa-1"
+    gcp_service_account_description = "For running e2e tests"
     gcp_roles = [
         "roles/compute.instanceAdmin.v1",
         "roles/container.admin"
