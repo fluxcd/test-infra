@@ -6,6 +6,8 @@ module "tags" {
 
 data "google_client_config" "this" {}
 
+data "google_project" "this" {}
+
 resource "google_container_cluster" "primary" {
   name               = var.name
   location           = data.google_client_config.this.region
@@ -15,10 +17,14 @@ resource "google_container_cluster" "primary" {
     disk_size_gb = 10
 
     # Set the scope to grant the nodes all the API access.
-    oauth_scopes = [
-      "https://www.googleapis.com/auth/cloud-platform"
-    ]
+    oauth_scopes = var.oauth_scopes
+
   }
+
+  workload_identity_config {
+    workload_pool = var.enable_wi == false ? null : "${data.google_project.this.project_id}.svc.id.goog"
+  }
+
   resource_labels = module.tags.tags
 }
 

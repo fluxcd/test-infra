@@ -23,3 +23,13 @@ output "region" {
   description = "Region in which the EKS cluster is created"
   value       = data.aws_region.current.name
 }
+
+output "cluster_oidc_url" {
+  value       = module.eks.cluster_oidc_issuer_url
+  description = "The OIDC Issuer URL of the EKS cluster"
+}
+
+output "cluster_oidc_arn" {
+  value       = module.eks.oidc_provider_arn
+  description = "The ARN of the OIDC Provider"
+}
