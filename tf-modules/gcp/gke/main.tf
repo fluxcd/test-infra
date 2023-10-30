@@ -26,6 +26,20 @@ resource "google_container_cluster" "primary" {
   }
 
   resource_labels = module.tags.tags
+
+  lifecycle {
+    ignore_changes = [
+      # When enabling workload identity, the oauth_scopes in node_config is set
+      # to be empty at provision time. But after provision, some default scopes
+      # get attached. Reapplying the same config tries to remove the existing
+      # oauth scopes for empty scopes. Oauth scopes replacement requires
+      # destroying and creating a new cluster. To prevent such cluster
+      # recreation, ignore any change in node_config.
+      # node_config[0].oauth_scopes can ignore just oauth_scopes of the first
+      # node_config, but for simplicity, ignore the whole node_config change.
+      node_config
+    ]
+  }
 }
 
 # auth module to retrieve kubeconfig of the created cluster.

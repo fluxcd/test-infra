@@ -22,3 +22,9 @@ module "gke" {
     name = "flux-test-${random_pet.suffix.id}"
 }
 ```
+
+**:warning: WARNING:** This module ignores changes to the
+`google_container_cluster.node_config` using [lifecycle
+meta-argument](https://developer.hashicorp.com/terraform/language/meta-arguments/lifecycle#ignore_changes).
+Please consider updating the lifecycle arguments when there's a need to update
+the `node_config` post provision.
