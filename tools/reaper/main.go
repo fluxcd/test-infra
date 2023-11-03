@@ -205,6 +205,11 @@ func main() {
 				}
 			}
 		}
+	} else if !*delete && len(resources) > 0 {
+		// Exit with non-zero exit code when resources are found but not
+		// deleted. This is to help detect stale resources when run in CI by
+		// failing the job.
+		log.Fatal("resources found but not deleted")
 	}
 }
 
