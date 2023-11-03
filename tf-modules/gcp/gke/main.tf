@@ -25,6 +25,8 @@ resource "google_container_cluster" "primary" {
     workload_pool = var.enable_wi == false ? null : "${data.google_project.this.project_id}.svc.id.goog"
   }
 
+  deletion_protection = false
+
   resource_labels = module.tags.tags
 }
 
