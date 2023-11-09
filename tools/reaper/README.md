@@ -37,6 +37,8 @@ compute.googleapis.com/InstanceTemplate: gke-flux-test-full-dove-default-pool-42
 compute.googleapis.com/InstanceTemplate: gke-flux-test-full-dove-default-pool-dcded0bb
 container.googleapis.com/Cluster: flux-test-full-dove
 artifactregistry.googleapis.com/Repository: projects/darkowlzz-gcp/locations/us-central1/repositories/flux-test-full-dove
+2023/11/04 00:49:45 resources found but not deleted
+exit status 1
 ```
 
 JSON output is also supported:
