@@ -14,13 +14,13 @@ resource "azuread_application" "app" {
 }
 
 resource "azuread_service_principal" "app_sp" {
-  client_id = azuread_application.app.client_id
-  use_existing   = true
+  client_id    = azuread_application.app.client_id
+  use_existing = true
 }
 
 resource "azuread_application_password" "app_secret" {
   application_id = resource.azuread_application.app.id
-  display_name          = var.azure_app_secret_name
+  display_name   = var.azure_app_secret_name
 }
 
 # Define custom role.
