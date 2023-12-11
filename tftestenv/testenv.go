@@ -226,7 +226,9 @@ func (env *Environment) createAndConfigure(ctx context.Context, scheme *runtime.
 		return fmt.Errorf("could not read state: %v", err)
 	}
 	outputs := state.Values.Outputs
-	env.CreateKubeconfig(ctx, outputs, kubeconfigPath)
+	if err = env.CreateKubeconfig(ctx, outputs, kubeconfigPath); err != nil {
+		return fmt.Errorf("failed to create kubeconfig: %w", err)
+	}
 
 	// Create kube client.
 	kubeCfg, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
