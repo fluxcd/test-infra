@@ -57,6 +57,12 @@ type Environment struct {
 	existing bool
 	verbose  bool
 	buildDir string
+	// tfApplyOptions are the terraform apply options to use when running
+	// terraform apply.
+	tfApplyOptions []tfexec.ApplyOption
+	// tfDestroyOptions are the terraform destroy options to use when running
+	// terraform destroy.
+	tfDestroyOptions []tfexec.DestroyOption
 }
 
 // createKubeconfig create a kubeconfig for the target cluster and writes to
@@ -103,6 +109,20 @@ func WithCreateKubeconfig(create CreateKubeconfig) EnvironmentOption {
 func WithBuildDir(dir string) EnvironmentOption {
 	return func(e *Environment) {
 		e.buildDir = dir
+	}
+}
+
+// WithTfApplyOptions configures terraform apply options.
+func WithTfApplyOptions(opts ...tfexec.ApplyOption) EnvironmentOption {
+	return func(e *Environment) {
+		e.tfApplyOptions = append(e.tfApplyOptions, opts...)
+	}
+}
+
+// WithTfDestroyOptions configures terraform destroy options.
+func WithTfDestroyOptions(opts ...tfexec.DestroyOption) EnvironmentOption {
+	return func(e *Environment) {
+		e.tfDestroyOptions = append(e.tfDestroyOptions, opts...)
 	}
 }
 
@@ -223,7 +243,7 @@ func setUpTerraform(ctx context.Context, terraformPath string, buildDir string) 
 func (env *Environment) createAndConfigure(ctx context.Context, scheme *runtime.Scheme, kubeconfigPath string) error {
 	// Apply Terraform, read the output values and construct kubeconfig.
 	log.Println("Applying Terraform")
-	err := env.tf.Apply(ctx)
+	err := env.tf.Apply(ctx, env.tfApplyOptions...)
 	if err != nil {
 		return fmt.Errorf("error running apply: %v", err)
 	}
@@ -253,7 +273,7 @@ func (env *Environment) createAndConfigure(ctx context.Context, scheme *runtime.
 func (env *Environment) Stop(ctx context.Context) error {
 	if !env.retain {
 		log.Println("Destroying environment...")
-		if ferr := env.tf.Destroy(ctx); ferr != nil {
+		if ferr := env.tf.Destroy(ctx, env.tfDestroyOptions...); ferr != nil {
 			return fmt.Errorf("could not destroy infrastructure: %w", ferr)
 		}
 	}
@@ -311,6 +331,5 @@ func Destroy(ctx context.Context, terraformPath string, opts ...EnvironmentOptio
 	}
 
 	log.Println("Terraform destroy...")
-	// Bypass the terraform state lock.
-	return env.tf.Destroy(ctx, tfexec.Lock(false))
+	return env.tf.Destroy(ctx, env.tfDestroyOptions...)
 }
