@@ -57,6 +57,12 @@ type Environment struct {
 	existing bool
 	verbose  bool
 	buildDir string
+	// tfApplyOptions are the terraform apply options to use when running
+	// terraform apply.
+	tfApplyOptions []tfexec.ApplyOption
+	// tfDestroyOptions are the terraform destroy options to use when running
+	// terraform destroy.
+	tfDestroyOptions []tfexec.DestroyOption
 }
 
 // createKubeconfig create a kubeconfig for the target cluster and writes to
@@ -106,6 +112,20 @@ func WithBuildDir(dir string) EnvironmentOption {
 	}
 }
 
+// WithTfApplyOptions configures terraform apply options.
+func WithTfApplyOptions(opts ...tfexec.ApplyOption) EnvironmentOption {
+	return func(e *Environment) {
+		e.tfApplyOptions = append(e.tfApplyOptions, opts...)
+	}
+}
+
+// WithTfDestroyOptions configures terraform destroy options.
+func WithTfDestroyOptions(opts ...tfexec.DestroyOption) EnvironmentOption {
+	return func(e *Environment) {
+		e.tfDestroyOptions = append(e.tfDestroyOptions, opts...)
+	}
+}
+
 // New finds or downloads terraform binary, uses it to run terraform in the
 // given terraformPath to create a kubernetes cluster. A kubeconfig of the
 // created cluster is constructed at the given kubeconfigPath which is then used
@@ -136,23 +156,7 @@ func New(ctx context.Context, scheme *runtime.Scheme, terraformPath string, kube
 		return env, fmt.Errorf("failed to create build directory: %w", err)
 	}
 
-	// Find or download terraform binary.
-	i := install.NewInstaller()
-	execPath, err := i.Ensure(ctx, []src.Source{
-		&fs.AnyVersion{
-			Product: &product.Terraform,
-		},
-		&releases.LatestVersion{
-			Product:    product.Terraform,
-			InstallDir: buildDir,
-		},
-	})
-	if err != nil {
-		return env, fmt.Errorf("terraform exec path not found: %w", err)
-	}
-	log.Println("Terraform binary: ", execPath)
-
-	env.tf, err = tfexec.NewTerraform(terraformPath, execPath)
+	env.tf, err = setUpTerraform(ctx, terraformPath, buildDir)
 	if err != nil {
 		return env, fmt.Errorf("could not create terraform instance: %w", err)
 	}
@@ -212,12 +216,34 @@ func New(ctx context.Context, scheme *runtime.Scheme, terraformPath string, kube
 	return env, nil
 }
 
+// setUpTerraform finds or downloads terraform binary and returns Terraform
+// which can be used to run terraform operations.
+func setUpTerraform(ctx context.Context, terraformPath string, buildDir string) (*tfexec.Terraform, error) {
+	// Find or download terraform binary.
+	i := install.NewInstaller()
+	execPath, err := i.Ensure(ctx, []src.Source{
+		&fs.AnyVersion{
+			Product: &product.Terraform,
+		},
+		&releases.LatestVersion{
+			Product:    product.Terraform,
+			InstallDir: buildDir,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("terraform exec path not found: %w", err)
+	}
+	log.Println("Terraform binary: ", execPath)
+
+	return tfexec.NewTerraform(terraformPath, execPath)
+}
+
 // createAndConfigure creates the resources and configures the Environment with
 // the created resource.
 func (env *Environment) createAndConfigure(ctx context.Context, scheme *runtime.Scheme, kubeconfigPath string) error {
 	// Apply Terraform, read the output values and construct kubeconfig.
 	log.Println("Applying Terraform")
-	err := env.tf.Apply(ctx)
+	err := env.tf.Apply(ctx, env.tfApplyOptions...)
 	if err != nil {
 		return fmt.Errorf("error running apply: %v", err)
 	}
@@ -247,7 +273,7 @@ func (env *Environment) createAndConfigure(ctx context.Context, scheme *runtime.
 func (env *Environment) Stop(ctx context.Context) error {
 	if !env.retain {
 		log.Println("Destroying environment...")
-		if ferr := env.tf.Destroy(ctx); ferr != nil {
+		if ferr := env.tf.Destroy(ctx, env.tfDestroyOptions...); ferr != nil {
 			return fmt.Errorf("could not destroy infrastructure: %w", ferr)
 		}
 	}
@@ -261,4 +287,49 @@ func (env *Environment) StateOutput(ctx context.Context) (map[string]*tfjson.Sta
 		return nil, fmt.Errorf("could not read state: %v", err)
 	}
 	return state.Values.Outputs, nil
+}
+
+// Destroy configures a new Environment with the given configurations for
+// terraform and runs terraform destroy. Ideally, this need not be used as the
+// testenv New() handles graceful cleanup when shutdown signals are received.
+// But in case the whole process gets terminated, use this to just perform a
+// destroy of any created infrastructure.
+// This can be used as the last step in CI to always run irrespective of success
+// or failure of the test run to make sure the test infrastructure is destroyed.
+// One such scenario is when the cloud provider takes longer than the usual time
+// to provision the infrastructure and the test binary execution reaches timeout
+// and the whole process gets terminated. This can be run in a separate step in
+// CI to destroy the infrastructure.
+func Destroy(ctx context.Context, terraformPath string, opts ...EnvironmentOption) error {
+	// Set a default logger if not set already.
+	runtimeLog.SetLogger(klogr.New())
+
+	env := &Environment{
+		buildDir: "build", // Default build dir.
+	}
+
+	// Process the options.
+	for _, opt := range opts {
+		opt(env)
+	}
+
+	// Assume that the initial test run created the build directory.
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get the current working directory: %w", err)
+	}
+	buildDir := filepath.Join(cwd, env.buildDir)
+
+	env.tf, err = setUpTerraform(ctx, terraformPath, buildDir)
+	if err != nil {
+		return fmt.Errorf("could not create terraform instance: %w", err)
+	}
+
+	if env.verbose {
+		env.tf.SetStdout(os.Stdout)
+		env.tf.SetStderr(os.Stderr)
+	}
+
+	log.Println("Terraform destroy...")
+	return env.tf.Destroy(ctx, env.tfDestroyOptions...)
 }

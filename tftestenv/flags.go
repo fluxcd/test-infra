@@ -31,6 +31,9 @@ type Options struct {
 	Existing bool
 	// Verbose flag to enable output of terraform execution.
 	Verbose bool
+	// DestroyOnly can be used to run the testenv in destroy only mode to
+	// perform cleanup.
+	DestroyOnly bool
 }
 
 var supportedProviders = []string{"aws", "azure", "gcp"}
@@ -41,6 +44,7 @@ func (o *Options) Bindflags(fs *flag.FlagSet) {
 	fs.BoolVar(&o.Retain, "retain", false, "retain the infrastructure for debugging purposes")
 	fs.BoolVar(&o.Existing, "existing", false, "use existing infrastructure state for debugging purposes")
 	fs.BoolVar(&o.Verbose, "verbose", false, "verbose output of the environment setup")
+	fs.BoolVar(&o.DestroyOnly, "destroy-only", false, "run in destroy-only mode and delete any existing infrastructure")
 }
 
 // Validate method ensures that the provider is set to one of the supported ones - aws, azure or gcp.
