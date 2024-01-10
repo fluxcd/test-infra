@@ -17,6 +17,14 @@ For listing the resources, readonly access to all the resources is needed.
 For deleting the resources, grant the delete permission for the individual
 resources.
 
+In GCP, a new deleter role can be created and assigned to the reaper service
+account with the following permissions to delete integration test resources:
+
+- `container.operations.get`
+- `container.clusters.delete`
+- `artifactregistry.repositories.get`
+- `artifactregistry.repositories.delete`
+
 ## Usage
 
 Query the resources by providing the cloud provider name(`provider`) and the
