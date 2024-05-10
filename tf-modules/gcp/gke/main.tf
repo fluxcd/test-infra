@@ -21,6 +21,10 @@ resource "google_container_cluster" "primary" {
 
   }
 
+  release_channel {
+    channel = var.release_channel
+  }
+
   workload_identity_config {
     workload_pool = var.enable_wi == false ? null : "${data.google_project.this.project_id}.svc.id.goog"
   }
