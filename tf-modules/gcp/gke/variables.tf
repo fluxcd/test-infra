@@ -21,3 +21,9 @@ variable "oauth_scopes" {
     "https://www.googleapis.com/auth/cloud-platform"
   ]
 }
+
+variable "release_channel" {
+  description = "GKE release channel to use for the cluster"
+  type        = string
+  default     = "REGULAR"
+}
