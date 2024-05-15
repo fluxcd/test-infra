@@ -6,10 +6,10 @@ module "tags" {
 
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 19"
+  version = "~> 20.0"
 
   cluster_name    = var.name
-  cluster_version = "1.25"
+  cluster_version = "1.29"
 
   # Maybe don't need any of these?
   cluster_endpoint_private_access = true
@@ -46,6 +46,8 @@ module "eks" {
     }
   }
 
+  enable_cluster_creator_admin_permissions = true
+
   tags = module.tags.tags
 }
 
@@ -57,7 +59,7 @@ data "aws_availability_zones" "available" {}
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 3.0"
+  version = "~> 5.0"
 
   name = var.name
   cidr = "10.0.0.0/16"
