@@ -14,14 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package awsnukemod
+package libnukemod
 
 import (
 	"testing"
 	"time"
 
+	"github.com/ekristen/libnuke/pkg/queue"
 	. "github.com/onsi/gomega"
-	"github.com/rebuy-de/aws-nuke/v2/cmd"
 
 	"github.com/fluxcd/test-infra/tftestenv"
 )
@@ -33,79 +33,79 @@ func TestNuke_ApplyRetentionFilter(t *testing.T) {
 	beforePeriod := now.Add(-time.Hour * (2 + 1))
 	afterPeriod := now.Add(-time.Hour)
 
-	fakeRegion := cmd.Region{Name: "zz"}
+	fakeRegion := "zz"
 
 	tests := []struct {
 		name           string
 		inputPeriod    string
-		items          cmd.Queue
+		items          []*queue.Item
 		wantErr        bool
-		wantItemStates []cmd.ItemState
+		wantItemStates []queue.ItemState
 	}{
 		{
 			name:        "old, new, without createdat, filtered, waiting states",
 			inputPeriod: period,
-			items: []*cmd.Item{
+			items: []*queue.Item{
 				{
 					Resource: MockResourceWithTags("a1", map[string]string{"tag:" + createdat: beforePeriod.Format(tftestenv.CreatedAtTimeLayout)}),
-					State:    cmd.ItemStateNew,
-					Region:   &fakeRegion,
+					State:    queue.ItemStateNew,
+					Owner:    fakeRegion,
 				},
 				{
 					Resource: MockResourceWithTags("a2", map[string]string{"tag:" + createdat: afterPeriod.Format(tftestenv.CreatedAtTimeLayout)}),
-					State:    cmd.ItemStateNew,
-					Region:   &fakeRegion,
+					State:    queue.ItemStateNew,
+					Owner:    fakeRegion,
 				},
 				{
 					Resource: MockResource{ARN: "a3"},
-					State:    cmd.ItemStateNew,
-					Region:   &fakeRegion,
+					State:    queue.ItemStateNew,
+					Owner:    fakeRegion,
 				},
 				{
 					Resource: MockResourceWithTags("a4", map[string]string{"tag:" + createdat: beforePeriod.Format(tftestenv.CreatedAtTimeLayout)}),
-					State:    cmd.ItemStateFiltered,
-					Region:   &fakeRegion,
+					State:    queue.ItemStateFiltered,
+					Owner:    fakeRegion,
 				},
 				{
 					Resource: MockResourceWithTags("a5", map[string]string{"tag:" + createdat: beforePeriod.Format(tftestenv.CreatedAtTimeLayout)}),
-					State:    cmd.ItemStateWaiting,
-					Region:   &fakeRegion,
+					State:    queue.ItemStateWaiting,
+					Owner:    fakeRegion,
 				},
 				{
 					Resource: MockResourceWithTags("a6", map[string]string{"tag:" + createdat: ""}),
-					State:    cmd.ItemStateNew,
-					Region:   &fakeRegion,
+					State:    queue.ItemStateNew,
+					Owner:    fakeRegion,
 				},
 				{
 					Resource: MockResourceWithTags("a7", map[string]string{"tag:role:" + createdat: beforePeriod.Format(tftestenv.CreatedAtTimeLayout)}),
-					State:    cmd.ItemStateNew,
-					Region:   &fakeRegion,
+					State:    queue.ItemStateNew,
+					Owner:    fakeRegion,
 				},
 				{
 					Resource: MockResourceWithTags("a8", map[string]string{"tag:igw:" + createdat: beforePeriod.Format(tftestenv.CreatedAtTimeLayout)}),
-					State:    cmd.ItemStateNew,
-					Region:   &fakeRegion,
+					State:    queue.ItemStateNew,
+					Owner:    fakeRegion,
 				},
 			},
-			wantItemStates: []cmd.ItemState{
-				cmd.ItemStateNew,
-				cmd.ItemStateFiltered,
-				cmd.ItemStateFiltered,
-				cmd.ItemStateFiltered,
-				cmd.ItemStateWaiting,
-				cmd.ItemStateFiltered,
-				cmd.ItemStateNew,
-				cmd.ItemStateNew,
+			wantItemStates: []queue.ItemState{
+				queue.ItemStateNew,
+				queue.ItemStateFiltered,
+				queue.ItemStateFiltered,
+				queue.ItemStateFiltered,
+				queue.ItemStateWaiting,
+				queue.ItemStateFiltered,
+				queue.ItemStateNew,
+				queue.ItemStateNew,
 			},
 		},
 		{
 			name:        "invalid created at",
 			inputPeriod: period,
-			items: []*cmd.Item{
+			items: []*queue.Item{
 				{
 					Resource: MockResourceWithTags("a2", map[string]string{"tag:" + createdat: "222222"}),
-					State:    cmd.ItemStateNew,
-					Region:   &fakeRegion,
+					State:    queue.ItemStateNew,
+					Owner:    fakeRegion,
 				},
 			},
 			wantErr: true,
@@ -121,14 +121,14 @@ func TestNuke_ApplyRetentionFilter(t *testing.T) {
 			g := NewWithT(t)
 
 			n := &Nuke{
-				items: tt.items,
+				Queue: &queue.Queue{Items: tt.items},
 			}
-			err := n.ApplyRetentionFilter(tt.inputPeriod)
+			err := ApplyRetentionFilter(n, tt.inputPeriod)
 			if (err != nil) != tt.wantErr {
-				t.Fatalf("Nuke.ApplyRetentionFilter() error = %v, wantErr %v", err, tt.wantErr)
+				t.Fatalf("ApplyRetentionFilter() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if err == nil {
-				for i, item := range n.Items() {
+				for i, item := range n.Queue.GetItems() {
 					g.Expect(item.State).To(Equal(tt.wantItemStates[i]))
 				}
 			}

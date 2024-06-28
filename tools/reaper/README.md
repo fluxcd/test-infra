@@ -26,8 +26,9 @@ account with the following permissions to delete integration test resources:
 - `artifactregistry.repositories.get`
 - `artifactregistry.repositories.delete`
 
-For aws-nuke, a new deleter IAM policy can be created and assigned to the reaper
-IAM principal with the following policy document:
+For [aws-nuke][aws-nuke], a new deleter IAM policy
+can be created and assigned to the reaper IAM principal with the following
+policy document:
 
 ```json
 {
@@ -50,6 +51,7 @@ IAM principal with the following policy document:
                 "ec2:DescribeInstances",
                 "ec2:DescribeLaunchTemplates",
                 "ec2:DescribeNatGateways",
+                "ec2:DescribeRegions",
                 "ec2:DescribeSecurityGroups",
                 "ec2:DescribeInternetGateways",
                 "ec2:DescribeNetworkInterfaces",
@@ -67,6 +69,7 @@ IAM principal with the following policy document:
                 "ec2:DeleteSubnet",
                 "ec2:DeleteRouteTable",
                 "ec2:DeleteVolume",
+                "ec2:DeleteTags",
                 "ec2:DeleteInternetGateway",
                 "ec2:DetachInternetGateway",
                 "ec2:RevokeSecurityGroupEgress",
@@ -137,9 +140,11 @@ The above command would list the resources that are older than 3 days.
 
 In order to delete these resources, pass the `-delete` flag.
 
-**NOTE:** For AWS, unlike the other providers, a third party tool, `aws-nuke`,
+**NOTE:** For AWS, unlike the other providers, a third party tool, [aws-nuke][aws-nuke],
 is used. The `aws` provider may be removed in the future. It works in a very
 limited manner using the Resource Groups Tagging API. The replacement,
 `aws-nuke` provider, is capable of listing and deleting the resources properly.
 
 Use the `-h` flag to list all the available options.
+
+[aws-nuke]: https://github.com/ekristen/aws-nuke

@@ -27,9 +27,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rebuy-de/aws-nuke/v2/cmd"
+	"github.com/ekristen/libnuke/pkg/queue"
 
-	"github.com/fluxcd/test-infra/tools/reaper/internal/awsnukemod"
+	"github.com/fluxcd/test-infra/tools/reaper/internal/libnukemod"
 )
 
 const (
@@ -90,7 +90,8 @@ func main() {
 
 	// Paths of the cloud provider CLI binaries.
 	var awsPath, azPath, gcloudPath string
-	var awsNuker *awsnukemod.Nuke
+
+	var awsNuker *libnukemod.Nuke
 
 	t, err := time.ParseDuration(*timeout)
 	if err != nil {
@@ -174,9 +175,9 @@ func main() {
 		}
 
 		// Query aws resources using aws-nuke.
-		awsNuker, queryErr = awsnukeScan(awsAccountID)
+		awsNuker, queryErr = libnukeAWSScan(ctx, awsAccountID)
 		if queryErr == nil {
-			resources = awsnukeItemsToResources(awsNuker.Items())
+			resources = libnukeItemsToResources(awsNuker.Queue.GetItems())
 		}
 	}
 	if queryErr != nil {
@@ -187,13 +188,13 @@ func main() {
 	if *retentionPeriod != "" && len(resources) > 0 {
 		switch *targetProvider {
 		case awsnuke:
-			if err := awsNuker.ApplyRetentionFilter(*retentionPeriod); err != nil {
+			if err := libnukemod.ApplyRetentionFilter(awsNuker, *retentionPeriod); err != nil {
 				log.Fatalf("Failed to filter resources with retention-period: %v", err)
 			}
 			// Update the resources if the number of items to be removed has
 			// changed.
-			if awsNuker.Items().Count(cmd.ItemStateNew) != len(resources) {
-				resources = awsnukeItemsToResources(awsNuker.Items())
+			if awsNuker.Queue.Count(queue.ItemStateNew) != len(resources) {
+				resources = libnukeItemsToResources(awsNuker.Queue.GetItems())
 			}
 		default:
 			resources, err = applyRetentionFilter(resources, *retentionPeriod)
@@ -246,7 +247,7 @@ func main() {
 				}
 			}
 		case awsnuke:
-			if err := awsNuker.Delete(); err != nil {
+			if err := awsNuker.Delete(ctx); err != nil {
 				log.Fatalf("Failed to delete resources: %v", err)
 			}
 		}

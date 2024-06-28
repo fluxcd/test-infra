@@ -14,9 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package awsnukemod
+package libnukemod
 
-import "github.com/rebuy-de/aws-nuke/v2/pkg/types"
+import (
+	"context"
+
+	"github.com/ekristen/libnuke/pkg/types"
+)
 
 type MockResource struct {
 	ARN         string
@@ -24,9 +28,9 @@ type MockResource struct {
 	RemoveError error
 }
 
-func (mr MockResource) Remove() error                { return mr.RemoveError }
-func (mr MockResource) String() string               { return mr.ARN }
-func (mr MockResource) Properties() types.Properties { return mr.Tags }
+func (mr MockResource) Remove(ctx context.Context) error { return mr.RemoveError }
+func (mr MockResource) String() string                   { return mr.ARN }
+func (mr MockResource) Properties() types.Properties     { return mr.Tags }
 
 func MockResourceWithTags(arn string, props map[string]string) MockResource {
 	return MockResource{

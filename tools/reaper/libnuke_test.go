@@ -19,65 +19,65 @@ package main
 import (
 	"testing"
 
+	"github.com/ekristen/libnuke/pkg/queue"
 	. "github.com/onsi/gomega"
-	"github.com/rebuy-de/aws-nuke/v2/cmd"
 
-	"github.com/fluxcd/test-infra/tools/reaper/internal/awsnukemod"
+	"github.com/fluxcd/test-infra/tools/reaper/internal/libnukemod"
 )
 
-func Test_awsnukeItemsToResources(t *testing.T) {
-	fakeRegion1 := &cmd.Region{Name: "aa"}
-	fakeRegion2 := &cmd.Region{Name: "bb"}
+func Test_libnukeItemsToResources(t *testing.T) {
+	fakeRegion1 := "aa"
+	fakeRegion2 := "bb"
 	fakeResourceType := "Foo"
 
 	tests := []struct {
 		name  string
-		items cmd.Queue
+		items []*queue.Item
 		want  []resource
 	}{
 		{
 			name: "only converts the items to be deleted",
-			items: []*cmd.Item{
+			items: []*queue.Item{
 				{
-					Resource: awsnukemod.MockResource{ARN: "a1"},
-					State:    cmd.ItemStateFailed,
-					Region:   fakeRegion1,
+					Resource: libnukemod.MockResource{ARN: "a1"},
+					State:    queue.ItemStateFailed,
+					Owner:    fakeRegion1,
 					Type:     fakeResourceType,
 				},
 				{
-					Resource: awsnukemod.MockResource{ARN: "a2"},
-					State:    cmd.ItemStateNew,
-					Region:   fakeRegion1,
+					Resource: libnukemod.MockResource{ARN: "a2"},
+					State:    queue.ItemStateNew,
+					Owner:    fakeRegion1,
 					Type:     fakeResourceType,
 				},
 				{
-					Resource: awsnukemod.MockResourceWithTags("a3", map[string]string{"o": "p"}),
-					State:    cmd.ItemStateFiltered,
-					Region:   fakeRegion1,
+					Resource: libnukemod.MockResourceWithTags("a3", map[string]string{"o": "p"}),
+					State:    queue.ItemStateFiltered,
+					Owner:    fakeRegion1,
 					Type:     fakeResourceType,
 				},
 				{
-					Resource: awsnukemod.MockResource{ARN: "a4"},
-					State:    cmd.ItemStateFinished,
-					Region:   fakeRegion1,
+					Resource: libnukemod.MockResource{ARN: "a4"},
+					State:    queue.ItemStateFinished,
+					Owner:    fakeRegion1,
 					Type:     fakeResourceType,
 				},
 				{
-					Resource: awsnukemod.MockResource{ARN: "a5"},
-					State:    cmd.ItemStatePending,
-					Region:   fakeRegion1,
+					Resource: libnukemod.MockResource{ARN: "a5"},
+					State:    queue.ItemStatePending,
+					Owner:    fakeRegion1,
 					Type:     fakeResourceType,
 				},
 				{
-					Resource: awsnukemod.MockResource{ARN: "a6"},
-					State:    cmd.ItemStatePending,
-					Region:   fakeRegion1,
+					Resource: libnukemod.MockResource{ARN: "a6"},
+					State:    queue.ItemStatePending,
+					Owner:    fakeRegion1,
 					Type:     fakeResourceType,
 				},
 				{
-					Resource: awsnukemod.MockResourceWithTags("a7", map[string]string{"m": "n"}),
-					State:    cmd.ItemStateNew,
-					Region:   fakeRegion2,
+					Resource: libnukemod.MockResourceWithTags("a7", map[string]string{"m": "n"}),
+					State:    queue.ItemStateNew,
+					Owner:    fakeRegion2,
 					Type:     fakeResourceType,
 				},
 			},
@@ -85,13 +85,13 @@ func Test_awsnukeItemsToResources(t *testing.T) {
 				{
 					Name:     "a2",
 					Type:     fakeResourceType,
-					Location: fakeRegion1.Name,
+					Location: fakeRegion1,
 					Tags:     nil,
 				},
 				{
 					Name:     "a7",
 					Type:     fakeResourceType,
-					Location: fakeRegion2.Name,
+					Location: fakeRegion2,
 					Tags:     map[string]string{"m": "n"},
 				},
 			},
@@ -100,7 +100,7 @@ func Test_awsnukeItemsToResources(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
-			got := awsnukeItemsToResources(tt.items)
+			got := libnukeItemsToResources(tt.items)
 			g.Expect(got).To(Equal(tt.want))
 		})
 	}
