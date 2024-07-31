@@ -26,12 +26,17 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/ekristen/libnuke/pkg/queue"
+
+	"github.com/fluxcd/test-infra/tools/reaper/internal/libnukemod"
 )
 
 const (
-	aws   = "aws"
-	azure = "azure"
-	gcp   = "gcp"
+	aws     = "aws"
+	azure   = "azure"
+	gcp     = "gcp"
+	awsnuke = "aws-nuke"
 )
 
 // registryTypes maps the registry type resources with their resource.Type value
@@ -63,9 +68,10 @@ type resource struct {
 }
 
 var (
-	supportedProviders = []string{aws, azure, gcp}
+	supportedProviders = []string{aws, azure, gcp, awsnuke}
 	targetProvider     = flag.String("provider", "", fmt.Sprintf("name of the provider %v", supportedProviders))
 	gcpProject         = flag.String("gcpproject", "", "GCP project name")
+	awsRegions         = flag.String("awsregions", "", "Comma separated list of aws regions for aws-nuke (e.g.: us-east-1,us-east-2). The first entry is used as the default region")
 	tags               = flag.String("tags", "", "key-value pair of tag to query with. Only single pair supported at present ('environment=dev')")
 	retentionPeriod    = flag.String("retention-period", "", "period for which the resources should be retained (e.g.: 1d, 1h)")
 	jsonoutput         = flag.Bool("ojson", false, "JSON output")
@@ -84,6 +90,8 @@ func main() {
 
 	// Paths of the cloud provider CLI binaries.
 	var awsPath, azPath, gcloudPath string
+
+	var awsNuker *libnukemod.Nuke
 
 	t, err := time.ParseDuration(*timeout)
 	if err != nil {
@@ -150,19 +158,53 @@ func main() {
 			*gcpProject = p
 		}
 		resources, queryErr = getGCPResources(ctx, gcloudPath, jqBinPath)
+	case awsnuke:
+		// Get the account ID of the IAM principal using AWS CLI. Since aws-nuke
+		// can work on multiple accounts, it explicitly needs the target account
+		// ID.
+		awsPath, err = exec.LookPath("aws")
+		if err != nil {
+			log.Fatalln(err)
+		}
+		awsAccountID, err := getAWSAccountID(ctx, awsPath)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		if *awsRegions == "" {
+			log.Fatalf("-awsregions flag unset. AWS regions must be set for aws-nuke")
+		}
+
+		// Query aws resources using aws-nuke.
+		awsNuker, queryErr = libnukeAWSScan(ctx, awsAccountID)
+		if queryErr == nil {
+			resources = libnukeItemsToResources(awsNuker.Queue.GetItems())
+		}
 	}
 	if queryErr != nil {
 		log.Fatalf("Query error: %v", queryErr)
 	}
 
-	// Print only the result to stdout.
+	// Apply the retention period filter.
 	if *retentionPeriod != "" && len(resources) > 0 {
-		resources, err = applyRetentionFilter(resources, *retentionPeriod)
-		if err != nil {
-			log.Fatalf("Failed to filter resources with retention-period: %v", err)
+		switch *targetProvider {
+		case awsnuke:
+			if err := libnukemod.ApplyRetentionFilter(awsNuker, *retentionPeriod); err != nil {
+				log.Fatalf("Failed to filter resources with retention-period: %v", err)
+			}
+			// Update the resources if the number of items to be removed has
+			// changed.
+			if awsNuker.Queue.Count(queue.ItemStateNew) != len(resources) {
+				resources = libnukeItemsToResources(awsNuker.Queue.GetItems())
+			}
+		default:
+			resources, err = applyRetentionFilter(resources, *retentionPeriod)
+			if err != nil {
+				log.Fatalf("Failed to filter resources with retention-period: %v", err)
+			}
 		}
 	}
 
+	// Print only the result to stdout.
 	if *jsonoutput {
 		out, err := json.MarshalIndent(resources, "", "  ")
 		if err != nil {
@@ -203,6 +245,10 @@ func main() {
 				if err := deleteGCPCluster(ctx, gcloudPath, cluster); err != nil {
 					log.Fatalf("Failed to delete cluster: %v", err)
 				}
+			}
+		case awsnuke:
+			if err := awsNuker.Delete(ctx); err != nil {
+				log.Fatalf("Failed to delete resources: %v", err)
 			}
 		}
 	} else if !*delete && len(resources) > 0 {

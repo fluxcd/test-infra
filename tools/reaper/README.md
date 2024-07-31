@@ -13,6 +13,7 @@ For listing the resources, readonly access to all the resources is needed.
 - AWS: Use the builtin `AWSResourceGroupsReadOnlyAccess` IAM policy .
 - Azure: Use the builtin `Reader` IAM role.
 - GCP: Use the builtin `Cloud Asset Viewer` IAM role.
+- aws-nuke: See below for an AWS IAM policy document.
 
 For deleting the resources, grant the delete permission for the individual
 resources.
@@ -24,6 +25,77 @@ account with the following permissions to delete integration test resources:
 - `container.clusters.delete`
 - `artifactregistry.repositories.get`
 - `artifactregistry.repositories.delete`
+
+For [aws-nuke][aws-nuke], a new deleter IAM policy
+can be created and assigned to the reaper IAM principal with the following
+policy document:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "reaper",
+            "Effect": "Allow",
+            "Action": [
+                "iam:ListPolicies",
+                "iam:ListRoles",
+                "iam:ListOpenIDConnectProviders",
+                "iam:ListAttachedRolePolicies",
+                "iam:ListAccountAliases",
+                "iam:ListRolePolicies",
+                "iam:GetRole",
+                "iam:GetPolicy",
+                "iam:GetOpenIDConnectProvider",
+                "ec2:DescribeAddresses",
+                "ec2:DescribeInstances",
+                "ec2:DescribeLaunchTemplates",
+                "ec2:DescribeNatGateways",
+                "ec2:DescribeRegions",
+                "ec2:DescribeSecurityGroups",
+                "ec2:DescribeInternetGateways",
+                "ec2:DescribeNetworkInterfaces",
+                "ec2:DescribeVpcs",
+                "ec2:DescribeVolumes",
+                "ec2:DescribeSubnets",
+                "ec2:DescribeRouteTables",
+                "autoscaling:DescribeAutoScalingGroups",
+                "eks:ListClusters",
+                "eks:ListNodegroups",
+                "eks:DescribeCluster",
+                "eks:DescribeNodegroup",
+                "ecr:ListTagsForResource",
+                "ecr:DescribeRepositories",
+                "ec2:DeleteSubnet",
+                "ec2:DeleteRouteTable",
+                "ec2:DeleteVolume",
+                "ec2:DeleteTags",
+                "ec2:DeleteInternetGateway",
+                "ec2:DetachInternetGateway",
+                "ec2:RevokeSecurityGroupEgress",
+                "ec2:RevokeSecurityGroupIngress",
+                "ec2:DeleteSecurityGroup",
+                "ec2:DeleteNatGateway",
+                "ec2:DeleteVpc",
+                "ec2:ReleaseAddress",
+                "ec2:DeleteLaunchTemplate",
+                "ec2:TerminateInstances",
+                "eks:DeleteCluster",
+                "eks:DeleteNodegroup",
+                "iam:ListPolicyVersions",
+                "iam:DeletePolicyVersion",
+                "iam:DeletePolicy",
+                "iam:DeleteRolePolicy",
+                "iam:DetachRolePolicy",
+                "iam:DeleteOpenIDConnectProvider",
+                "iam:DeleteRole",
+                "ecr:DeleteRepository"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
 
 ## Usage
 
@@ -68,16 +140,11 @@ The above command would list the resources that are older than 3 days.
 
 In order to delete these resources, pass the `-delete` flag.
 
-**NOTE:** Deleting resources is fully supported in Azure and GCP. Due to the
-complexity of deleting the resources created in AWS, it's not implemented yet.
-The test infrastructure for AWS involves a lot of individual components that
-have to be managed independently, compared of Azure and GCP where resources
-related to a cluster are related to one another and can be deleted all together.
-If and when the complexity of the AWS test infrastructure is simplified,
-deleting the resources can be easily implemented similar to the other providers.
-Another issue that contributes to it is the stale resources that are reported
-when listing resources via the Resource Groups Tagging API which makes it hard
-to find out if a resource still exists or has been deleted without describing
-the individual resource and checking their status.
+**NOTE:** For AWS, unlike the other providers, a third party tool, [aws-nuke][aws-nuke],
+is used. The `aws` provider may be removed in the future. It works in a very
+limited manner using the Resource Groups Tagging API. The replacement,
+`aws-nuke` provider, is capable of listing and deleting the resources properly.
 
 Use the `-h` flag to list all the available options.
+
+[aws-nuke]: https://github.com/ekristen/aws-nuke
