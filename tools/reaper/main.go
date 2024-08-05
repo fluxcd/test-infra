@@ -57,6 +57,15 @@ var clusterTypes map[string]string = map[string]string{
 	gcp:   "container.googleapis.com/Cluster",
 }
 
+// sourceRepoTypes maps the source repository type resource with their
+// resource.Type value in different providers. This is used to identify that a
+// given resource is a source repository in a particular provider.
+var sourceRepoTypes map[string]string = map[string]string{
+	aws:   "",
+	azure: "",
+	gcp:   "cloud-source-repository",
+}
+
 // resource is a common representation of a cloud resource with the minimal
 // attributes needed to uniquely identify them.
 type resource struct {
@@ -246,6 +255,13 @@ func main() {
 					log.Fatalf("Failed to delete cluster: %v", err)
 				}
 			}
+
+			srcRepos := getSourceRepos(*targetProvider, resources)
+			for _, repo := range srcRepos {
+				if err := deleteGCPSourceRepo(ctx, gcloudPath, repo); err != nil {
+					log.Fatalf("Failed to delete source repository: %v", err)
+				}
+			}
 		case awsnuke:
 			if err := awsNuker.Delete(ctx); err != nil {
 				log.Fatalf("Failed to delete resources: %v", err)
@@ -273,6 +289,16 @@ func getClusters(provider string, resources []resource) []resource {
 	result := []resource{}
 	for _, r := range resources {
 		if r.Type == clusterTypes[provider] {
+			result = append(result, r)
+		}
+	}
+	return result
+}
+
+func getSourceRepos(provider string, resources []resource) []resource {
+	result := []resource{}
+	for _, r := range resources {
+		if r.Type == sourceRepoTypes[provider] {
 			result = append(result, r)
 		}
 	}

@@ -151,6 +151,21 @@ func TestParseJSONResources(t *testing.T) {
 `),
 			wantItems: 1,
 		},
+		{
+			name: "GCP source repository",
+			data: []byte(`
+[
+  {
+    "name": "projects/cncf-flux/repos/fleet-infra-sure-marmot",
+    "type": "cloud-source-repository",
+    "tags": {
+      "createdat": "aaaa"
+    }
+  }
+]
+`),
+			wantItems: 1,
+		},
 	}
 
 	for _, tt := range tc {
