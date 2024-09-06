@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/fluxcd/test-infra/tftestenv"
 )
@@ -33,6 +34,22 @@ func queryGCP(binPath, jqPath, project, labelKey, labelVal string) string {
 			{"name": "\(.displayName)", "type": "\(.assetType)", "location": "\(.location)", "resourceGroup": "%[3]s", "tags": .labels}' |
 			%[2]s -s '.'`,
 		binPath, jqPath, project, labelKey, labelVal)
+}
+
+// queryGCPSourceRepos returns a GCP command for querying all the source
+// repositories in a specific format compatible with the resource type.
+func queryGCPSourceRepos(binPath, jqPath, project string) string {
+	// TODO: Figure out a better way to detect the age of the repository.
+	// Currently, all the repositories are deleted with fixed now-1hr createdat
+	// time.
+	now := time.Now().UTC()
+	createdat := now.Add(-time.Hour)
+	tagVal := createdat.Format(tftestenv.CreatedAtTimeLayout)
+	return fmt.Sprintf(`%[1]s source repos list --project %[3]s --format=json |
+			%[2]s '.[] |
+			{name, "type": "cloud-source-repository", "tags": { "createdat": "%[4]s" }}' |
+			%[2]s -s '.'`,
+		binPath, jqPath, project, tagVal)
 }
 
 // deleteGCPArtifactRepositoryCmd returns a gcloud command for deleting a Google
@@ -48,8 +65,27 @@ func deleteGCPClusterCmd(binPath, project, name, location string) string {
 		binPath, project, name, location)
 }
 
+// deleteGCPSourceRepoCmd returns a gcloud command for deleting cloud source
+// repository.
+func deleteGCPSourceRepoCmd(binPath, project, name string) string {
+	return fmt.Sprintf(`%[1]s source repos delete %[3]s --project %[2]s --quiet`,
+		binPath, project, name)
+}
+
+func getGCPSourceRepos(ctx context.Context, cliPath, jqPath string) ([]resource, error) {
+	output, err := tftestenv.RunCommandWithOutput(ctx, "./",
+		queryGCPSourceRepos(cliPath, jqPath, *gcpProject),
+		tftestenv.RunCommandOptions{},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return parseJSONResources(output)
+}
+
 // getGCPResources queries GCP for resources.
 func getGCPResources(ctx context.Context, cliPath, jqPath string) ([]resource, error) {
+	result := []resource{}
 	output, err := tftestenv.RunCommandWithOutput(ctx, "./",
 		queryGCP(cliPath, jqPath, *gcpProject, tagKey, tagVal),
 		tftestenv.RunCommandOptions{},
@@ -57,7 +93,19 @@ func getGCPResources(ctx context.Context, cliPath, jqPath string) ([]resource, e
 	if err != nil {
 		return nil, err
 	}
-	return parseJSONResources(output)
+	r, err := parseJSONResources(output)
+	if err != nil {
+		return nil, err
+	}
+	result = append(result, r...)
+
+	sr, err := getGCPSourceRepos(ctx, cliPath, jqPath)
+	if err != nil {
+		return nil, err
+	}
+	result = append(result, sr...)
+
+	return result, nil
 }
 
 // getGCPDefaultProject queries for the gcloud default/current project.
@@ -90,6 +138,15 @@ func deleteGCPCluster(ctx context.Context, cliPath string, res resource) error {
 func deleteGCPArtifactRepository(ctx context.Context, cliPath string, res resource) error {
 	_, err := tftestenv.RunCommandWithOutput(ctx, "./",
 		deleteGCPArtifactRepositoryCmd(cliPath, res.ResourceGroup, res.Name, res.Location),
+		tftestenv.RunCommandOptions{AttachConsole: true},
+	)
+	return err
+}
+
+// deleteGCPSourceRepo deletes a Google cloud source repository.
+func deleteGCPSourceRepo(ctx context.Context, cliPath string, res resource) error {
+	_, err := tftestenv.RunCommandWithOutput(ctx, "./",
+		deleteGCPSourceRepoCmd(cliPath, *gcpProject, res.Name),
 		tftestenv.RunCommandOptions{AttachConsole: true},
 	)
 	return err
