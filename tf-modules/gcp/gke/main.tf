@@ -14,7 +14,7 @@ resource "google_container_cluster" "primary" {
   initial_node_count = 1
   node_config {
     machine_type = "g1-small"
-    disk_size_gb = 10
+    disk_size_gb = 24
 
     # Set the scope to grant the nodes all the API access.
     oauth_scopes = var.oauth_scopes
