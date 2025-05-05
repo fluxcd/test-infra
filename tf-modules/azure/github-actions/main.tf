@@ -14,13 +14,13 @@ resource "azuread_application" "app" {
 }
 
 resource "azuread_service_principal" "app_sp" {
-  application_id = azuread_application.app.application_id
-  use_existing   = true
+  client_id    = azuread_application.app.client_id
+  use_existing = true
 }
 
 resource "azuread_application_password" "app_secret" {
-  application_object_id = resource.azuread_application.app.id
-  display_name          = var.azure_app_secret_name
+  application_id = resource.azuread_application.app.id
+  display_name   = var.azure_app_secret_name
 }
 
 # Define custom role.
@@ -49,7 +49,7 @@ resource "azurerm_role_assignment" "assignment" {
 resource "github_actions_secret" "client_id" {
   repository      = var.github_project
   secret_name     = var.github_secret_client_id_name
-  plaintext_value = azuread_application.app.application_id
+  plaintext_value = azuread_application.app.client_id
 }
 
 resource "github_actions_secret" "client_secret" {
