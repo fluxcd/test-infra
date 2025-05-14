@@ -58,6 +58,9 @@ module "eks" {
   cluster_encryption_config = {}
   create_kms_key            = false
 
+  # Enable IAM Roles for Service Accounts (IRSA) for the cluster.
+  enable_irsa = var.enable_irsa
+
   tags = module.tags.tags
 }
 

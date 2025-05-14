@@ -8,3 +8,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "enable_irsa" {
+  default     = false
+  type        = bool
+  description = "enable IAM Roles for Service Accounts for the cluster"
+}
