@@ -20,3 +20,9 @@ variable "enable_wi" {
   type        = bool
   default     = false
 }
+
+variable "aad_rbac_tenant_id" {
+  description = "Tenant ID for Azure Active Directory RBAC"
+  type        = string
+  default     = ""
+}
