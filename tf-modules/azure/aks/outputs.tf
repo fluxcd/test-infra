@@ -23,3 +23,8 @@ output "cluster_oidc_url" {
   description = "The OIDC Issuer URL of the AKS cluster"
   value       = azurerm_kubernetes_cluster.this.oidc_issuer_url
 }
+
+output "cluster_id" {
+  description = "The ID of the AKS cluster"
+  value       = azurerm_kubernetes_cluster.this.id
+}
