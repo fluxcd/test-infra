@@ -20,6 +20,11 @@ resource "azurerm_kubernetes_cluster" "this" {
     node_count      = 2
     vm_size         = "Standard_B2s"
     os_disk_size_gb = 30
+    upgrade_settings {
+      drain_timeout_in_minutes      = 0
+      max_surge                     = "10%"
+      node_soak_duration_in_minutes = 0
+    }
   }
   identity {
     type = "SystemAssigned"
