@@ -28,3 +28,8 @@ output "cluster_id" {
   description = "The ID of the AKS cluster"
   value       = azurerm_kubernetes_cluster.this.id
 }
+
+output "cluster_address" {
+  description = "The address of the AKS cluster"
+  value       = azurerm_kubernetes_cluster.this.kube_config[0].host
+}
