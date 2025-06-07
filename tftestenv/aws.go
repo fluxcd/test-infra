@@ -99,6 +99,14 @@ func RegistryLoginECR(ctx context.Context, region, repoURL string) error {
 	)
 }
 
+// RegistryLoginECRPublic logs into public ECR.
+func RegistryLoginECRPublic(ctx context.Context) error {
+	return RunCommand(ctx, "./",
+		"aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws",
+		RunCommandOptions{},
+	)
+}
+
 // PushTestAppImagesECR pushes app image that is being tested. It must be
 // called after RegistryLoginECR to ensure the local docker client is already
 // logged in and is capable of pushing the test images.
