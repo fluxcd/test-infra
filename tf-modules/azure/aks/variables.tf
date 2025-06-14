@@ -21,8 +21,8 @@ variable "enable_wi" {
   default     = false
 }
 
-variable "aad_rbac_tenant_id" {
-  description = "Tenant ID for Azure Active Directory RBAC"
-  type        = string
-  default     = ""
+variable "enable_aad" {
+  description = "Enable integration with Microsoft Entra ID"
+  type        = bool
+  default     = false
 }

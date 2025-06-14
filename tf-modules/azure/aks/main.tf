@@ -38,10 +38,7 @@ resource "azurerm_kubernetes_cluster" "this" {
   }
   tags = module.tags.tags
   dynamic "azure_active_directory_role_based_access_control" {
-    for_each = var.aad_rbac_tenant_id != "" ? [1] : []
-    content {
-      azure_rbac_enabled = true
-      tenant_id          = var.aad_rbac_tenant_id
-    }
+    for_each = var.enable_aad ? [1] : []
+    content {}
   }
 }

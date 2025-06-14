@@ -1,6 +1,6 @@
 output "kubeconfig" {
   description = "kubeconfig of the created AKS cluster"
-  value       = var.aad_rbac_tenant_id != "" ? azurerm_kubernetes_cluster.this.kube_admin_config_raw : azurerm_kubernetes_cluster.this.kube_config_raw
+  value       = var.enable_aad ? azurerm_kubernetes_cluster.this.kube_admin_config_raw : azurerm_kubernetes_cluster.this.kube_config_raw
   sensitive   = true
 }
 
