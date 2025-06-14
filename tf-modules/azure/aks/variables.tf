@@ -20,9 +20,3 @@ variable "enable_wi" {
   type        = bool
   default     = false
 }
-
-variable "enable_aad" {
-  description = "Enable integration with Microsoft Entra ID"
-  type        = bool
-  default     = false
-}

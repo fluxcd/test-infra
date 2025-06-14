@@ -37,11 +37,8 @@ resource "azurerm_kubernetes_cluster" "this" {
     network_policy = "calico"
   }
   tags = module.tags.tags
-  dynamic "azure_active_directory_role_based_access_control" {
-    for_each = var.enable_aad ? [1] : []
-    content {
-      tenant_id = data.azurerm_client_config.current.tenant_id
-    }
+  azure_active_directory_role_based_access_control {
+    tenant_id = data.azurerm_client_config.current.tenant_id
   }
 }
 
