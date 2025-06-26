@@ -34,6 +34,7 @@ import (
 	"github.com/hashicorp/terraform-exec/tfexec"
 	tfjson "github.com/hashicorp/terraform-json"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2/klogr"
@@ -46,7 +47,8 @@ var shutdownSignals = []os.Signal{os.Interrupt, syscall.SIGTERM}
 // Environment encapsulates a Kubernetes test environment.
 type Environment struct {
 	client.Client
-	Config *rest.Config
+	ClientGo *kubernetes.Clientset
+	Config   *rest.Config
 
 	// CreateKubeconfig provides the terraform state output which is used to
 	// construct kubeconfig.
@@ -264,6 +266,10 @@ func (env *Environment) createAndConfigure(ctx context.Context, scheme *runtime.
 	env.Client, err = client.New(kubeCfg, client.Options{Scheme: scheme})
 	if err != nil {
 		return fmt.Errorf("failed to create new client: %w", err)
+	}
+	env.ClientGo, err = kubernetes.NewForConfig(kubeCfg)
+	if err != nil {
+		return fmt.Errorf("failed to create client-go client: %w", err)
 	}
 
 	return nil
