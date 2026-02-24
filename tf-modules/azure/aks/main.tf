@@ -19,7 +19,7 @@ resource "azurerm_kubernetes_cluster" "this" {
     name            = "default"
     node_count      = 2
     vm_size         = "Standard_B2s"
-    os_disk_size_gb = 30
+    os_disk_size_gb = 50
     upgrade_settings {
       drain_timeout_in_minutes      = 0
       max_surge                     = "10%"
