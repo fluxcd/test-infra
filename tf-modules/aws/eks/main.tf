@@ -75,9 +75,8 @@ resource "terraform_data" "eni_sweep" {
   depends_on = [module.vpc]
 
   input = {
-    vpc_id       = module.vpc.vpc_id
-    region       = data.aws_region.current.name
-    cluster_name = var.name
+    vpc_id = module.vpc.vpc_id
+    region = data.aws_region.current.name
   }
 
   provisioner "local-exec" {
@@ -86,33 +85,35 @@ resource "terraform_data" "eni_sweep" {
       set -eu
       VPC_ID='${self.input.vpc_id}'
       REGION='${self.input.region}'
-      CLUSTER='${self.input.cluster_name}'
-      echo "Sweeping leaked EKS ENIs in VPC=$VPC_ID cluster=$CLUSTER region=$REGION"
+      echo ">>> ENI sweep: VPC=$VPC_ID region=$REGION"
       for i in $(seq 1 30); do
+        # Skip NAT gateway ENIs — those are deleted by the VPC module itself.
         ENIS=$(aws ec2 describe-network-interfaces --region "$REGION" \
           --filters "Name=vpc-id,Values=$VPC_ID" \
-                    "Name=description,Values=Amazon EKS $CLUSTER*" \
-          --query 'NetworkInterfaces[].NetworkInterfaceId' --output text)
+          --query 'NetworkInterfaces[?InterfaceType!=`nat_gateway`].NetworkInterfaceId' \
+          --output text)
         if [ -z "$ENIS" ]; then
-          echo "No leaked ENIs remaining."
+          echo ">>> ENI sweep: none remaining (attempt $i)"
           exit 0
         fi
-        echo "Attempt $i: found ENIs: $ENIS"
+        echo ">>> ENI sweep attempt $i: $ENIS"
         for ENI in $ENIS; do
           ATTACH=$(aws ec2 describe-network-interfaces --region "$REGION" \
             --network-interface-ids "$ENI" \
             --query 'NetworkInterfaces[0].Attachment.AttachmentId' \
             --output text 2>/dev/null || echo None)
           if [ -n "$ATTACH" ] && [ "$ATTACH" != "None" ]; then
+            echo ">>> detaching $ENI (attachment $ATTACH)"
             aws ec2 detach-network-interface --region "$REGION" \
               --attachment-id "$ATTACH" --force || true
           fi
+          echo ">>> deleting $ENI"
           aws ec2 delete-network-interface --region "$REGION" \
             --network-interface-id "$ENI" || true
         done
         sleep 10
       done
-      echo "WARNING: ENI sweep timed out; VPC destroy may still fail."
+      echo ">>> ENI sweep: timed out after 30 attempts; VPC destroy may still fail."
     EOT
   }
 }
